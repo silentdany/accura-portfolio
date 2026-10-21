@@ -6,8 +6,12 @@ import { errorMessage } from "@/lib/http";
 
 /**
  * Live screenshots of each production URL (desktop 1440×900 and mobile 390×844),
- * taken in headless Chromium and stored in the Capture table.
- * Cookie/consent banners are hidden before the shot.
+ * stored in the Capture table. Fully automatic: run by the weekly sync.
+ * - First choice: headless Chromium (local, or @sparticuz/chromium on Vercel).
+ * - Fallback: Microlink's screenshot API when Chromium can't start or a shot fails
+ *   (free tier without key; MICROLINK_API_KEY for the pro endpoint; CAPTURE_FALLBACK=off to disable).
+ * Cookie/consent banners are hidden. A page behind Vercel Authentication or an error page is rejected,
+ * so a login wall never ends up on the portfolio.
  */
 
 const VIEWPORTS = {
@@ -23,6 +27,26 @@ const HIDE_BANNERS = `
   [aria-label*="cookie" i], [data-nextjs-toast], nextjs-portal { display: none !important; }
   *, *::before, *::after { animation-play-state: paused !important; caret-color: transparent !important; }
 `;
+
+export class CaptureRejected extends Error {}
+
+/** Throws when the page is a login wall or an error page rather than the product. */
+function assertRealPage(finalUrl: string, title: string, status: number | null) {
+  const host = (() => {
+    try {
+      return new URL(finalUrl).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  if (host === "vercel.com" || host.endsWith(".vercel.com") || /vercel authentication|login – vercel|log in to vercel/i.test(title)) {
+    throw new CaptureRejected("Protégé par Vercel Authentication : ajoute un domaine public ou une URL dans l'admin.");
+  }
+  if (status && status >= 400) throw new CaptureRejected(`La page répond ${status}.`);
+  if (/^(404|500|502|503)\b|page not found|deployment not found|application error/i.test(title)) {
+    throw new CaptureRejected(`Page d'erreur (« ${title} »).`);
+  }
+}
 
 async function shoot(browser: Browser, url: string, kind: Kind): Promise<Buffer> {
   const v = VIEWPORTS[kind];
@@ -41,7 +65,8 @@ async function shoot(browser: Browser, url: string, kind: Kind): Promise<Buffer>
   });
   try {
     const page = await ctx.newPage();
-    await page.goto(url, { waitUntil: "load", timeout: 25000 });
+    const res = await page.goto(url, { waitUntil: "load", timeout: 25000 });
+    assertRealPage(page.url(), await page.title().catch(() => ""), res?.status() ?? null);
     await page.waitForLoadState("networkidle", { timeout: 7000 }).catch(() => {});
     await page.addStyleTag({ content: HIDE_BANNERS }).catch(() => {});
     await page.evaluate(() => document.fonts?.ready).catch(() => {});
@@ -52,6 +77,44 @@ async function shoot(browser: Browser, url: string, kind: Kind): Promise<Buffer>
   }
 }
 
+/** Microlink screenshot API (https://microlink.io/docs/api/parameters/screenshot). */
+async function shootMicrolink(url: string, kind: Kind): Promise<Buffer> {
+  const v = VIEWPORTS[kind];
+  const key = process.env.MICROLINK_API_KEY?.trim();
+  const qs = new URLSearchParams({
+    url,
+    screenshot: "true",
+    meta: "true",
+    "screenshot.type": "jpeg",
+    "viewport.width": String(v.viewport.width),
+    "viewport.height": String(v.viewport.height),
+    "viewport.deviceScaleFactor": String(v.deviceScaleFactor),
+    "viewport.isMobile": String(v.isMobile),
+    adblock: "true",
+    waitForTimeout: "1500",
+    styles: HIDE_BANNERS,
+  });
+  const res = await fetch(`https://${key ? "pro" : "api"}.microlink.io/?${qs}`, {
+    headers: key ? { "x-api-key": key } : {},
+    cache: "no-store",
+    signal: AbortSignal.timeout(45000),
+  });
+  const body = (await res.json().catch(() => null)) as {
+    status?: string;
+    message?: string;
+    data?: { url?: string; title?: string; statusCode?: number; screenshot?: { url?: string } };
+  } | null;
+  if (!res.ok || body?.status !== "success" || !body.data?.screenshot?.url) {
+    throw new Error(`Microlink ${res.status}${body?.message ? ` : ${body.message}` : ""}`);
+  }
+  assertRealPage(body.data.url ?? url, body.data.title ?? "", body.data.statusCode ?? null);
+  const img = await fetch(body.data.screenshot.url, { cache: "no-store", signal: AbortSignal.timeout(30000) });
+  if (!img.ok) throw new Error(`Microlink image ${img.status}`);
+  return Buffer.from(await img.arrayBuffer());
+}
+
+const fallbackEnabled = () => process.env.CAPTURE_FALLBACK !== "off";
+
 export type CaptureTarget = { id: string; slug: string; url: string };
 export type CaptureResult = { captured: number; errors: { project: string; error: string }[] };
 
@@ -60,12 +123,15 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
   const out: CaptureResult = { captured: 0, errors: [] };
   if (!targets.length) return out;
   const started = Date.now();
-  let browser: Browser;
+  let browser: Browser | null = null;
   try {
     browser = await launchBrowser();
   } catch (err) {
-    out.errors.push({ project: "chromium", error: errorMessage(err) });
-    return out;
+    if (!fallbackEnabled()) {
+      out.errors.push({ project: "chromium", error: errorMessage(err) });
+      return out;
+    }
+    out.errors.push({ project: "chromium", error: `Chromium indisponible, repli sur Microlink : ${errorMessage(err).split("\n")[0]}` });
   }
   try {
     for (const t of targets) {
@@ -75,7 +141,15 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
       }
       for (const kind of Object.keys(VIEWPORTS) as Kind[]) {
         try {
-          const data = await shoot(browser, t.url, kind);
+          let data: Buffer;
+          try {
+            if (!browser) throw new Error("no browser");
+            data = await shoot(browser, t.url, kind);
+          } catch (err) {
+            // A rejected page (login wall, error page) is the site's state, not a tooling problem: no retry.
+            if (err instanceof CaptureRejected || !fallbackEnabled()) throw err;
+            data = await shootMicrolink(t.url, kind);
+          }
           const hash = createHash("sha1").update(data).digest("hex").slice(0, 12);
           const { width, height } = VIEWPORTS[kind].viewport;
           const dims = { width: width * VIEWPORTS[kind].deviceScaleFactor, height: height * VIEWPORTS[kind].deviceScaleFactor };
@@ -91,7 +165,7 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
       }
     }
   } finally {
-    await browser.close();
+    await browser?.close();
   }
   return out;
 }

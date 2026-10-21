@@ -29,10 +29,28 @@ export type DeployedProject = {
   deployedAt: Date | null;
 };
 
-function pickDomain(p: VercelProject): string | null {
-  const aliases = [...(p.targets?.production?.alias ?? []), ...(p.alias ?? []).map((a) => a.domain)];
-  const custom = aliases.find((a) => !a.endsWith(".vercel.app"));
-  return custom ?? aliases[0] ?? p.targets?.production?.url ?? null;
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Production domain for a project. One app can serve several domains (a multi-tenant
+ * app also answering uicentral.fyi, say), so the domain that looks like the project's
+ * name wins, then any custom domain, then *.vercel.app. Wildcards never qualify.
+ */
+export function pickDomain(p: Pick<VercelProject, "name" | "targets" | "alias">): string | null {
+  const aliases = [...new Set([...(p.targets?.production?.alias ?? []), ...(p.alias ?? []).map((a) => a.domain)])].filter(
+    (d) => !d.includes("*") && !/-git-|-[a-z0-9]{9}-|-projects\.vercel\.app$/.test(d),
+  );
+  const name = norm(p.name.replace(/-(ai|app|web|site|landing|v\d+)$/i, ""));
+  const score = (d: string) => {
+    const host = d.replace(/^www\./, "");
+    const custom = !host.endsWith(".vercel.app");
+    const label = norm(host.split(".")[0]);
+    const whole = norm(host.replace(/\.vercel\.app$/, ""));
+    const matches = whole.includes(name) || name.includes(label) || whole.startsWith(name);
+    return (matches ? 4 : 0) + (custom ? 2 : 0) - host.split(".").length * 0.1 - (d.startsWith("www.") ? 0.05 : 0);
+  };
+  const best = aliases.sort((a, b) => score(b) - score(a))[0];
+  return best ?? p.targets?.production?.url ?? null;
 }
 
 export async function listDeployedProjects(): Promise<DeployedProject[]> {
