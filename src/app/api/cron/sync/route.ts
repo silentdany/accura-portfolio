@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { bearerOrSecret } from "@/lib/api-auth";
 import { env } from "@/lib/env";
-import { runSync } from "@/lib/sync";
+import { runSync, SyncBusy } from "@/lib/sync";
 import { errorMessage } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -17,6 +17,6 @@ export async function GET(req: NextRequest) {
     revalidatePath("/", "layout");
     return NextResponse.json({ ok: true, stats });
   } catch (err) {
-    return NextResponse.json({ ok: false, error: errorMessage(err) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: errorMessage(err) }, { status: err instanceof SyncBusy ? 409 : 500 });
   }
 }

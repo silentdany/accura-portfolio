@@ -92,7 +92,7 @@ async function shoot(browser: Browser, url: string, kind: Kind): Promise<Shot> {
 }
 
 /** Microlink screenshot API (https://microlink.io/docs/api/parameters/screenshot). */
-async function shootMicrolink(url: string, kind: Kind): Promise<Shot> {
+async function shootMicrolink(url: string, kind: Kind, timeoutMs: number): Promise<Shot> {
   const v = VIEWPORTS[kind];
   const key = process.env.MICROLINK_API_KEY?.trim();
   const qs = new URLSearchParams({
@@ -111,7 +111,7 @@ async function shootMicrolink(url: string, kind: Kind): Promise<Shot> {
   const res = await fetch(`https://${key ? "pro" : "api"}.microlink.io/?${qs}`, {
     headers: key ? { "x-api-key": key } : {},
     cache: "no-store",
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const body = (await res.json().catch(() => null)) as {
     status?: string;
@@ -122,7 +122,7 @@ async function shootMicrolink(url: string, kind: Kind): Promise<Shot> {
     throw new Error(`Microlink ${res.status}${body?.message ? ` : ${body.message}` : ""}`);
   }
   assertRealPage(body.data.url ?? url, body.data.title ?? "", body.data.statusCode ?? null);
-  const img = await fetch(body.data.screenshot.url, { cache: "no-store", signal: AbortSignal.timeout(30000) });
+  const img = await fetch(body.data.screenshot.url, { cache: "no-store", signal: AbortSignal.timeout(15000) });
   if (!img.ok) throw new Error(`Microlink image ${img.status}`);
   const origin = new URL(body.data.url ?? url).origin;
   return {
@@ -133,17 +133,36 @@ async function shootMicrolink(url: string, kind: Kind): Promise<Shot> {
 
 const fallbackEnabled = () => process.env.CAPTURE_FALLBACK !== "off";
 
-export type CaptureTarget = { id: string; slug: string; url: string };
-export type CaptureResult = { captured: number; errors: { project: string; error: string }[] };
+/** Longest a single Chromium shot may take (goto 25 s + settle), and the least time worth starting one with. */
+const SHOT_MAX_MS = 40_000;
+const SHOT_MIN_MS = 15_000;
 
-/** Captures every target (one browser, sequential), within a time budget. */
+class ShotTimeout extends Error {}
+
+function withTimeout<T>(task: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ShotTimeout(`délai de ${Math.round(ms / 1000)} s dépassé`)), ms);
+  });
+  return Promise.race([task, timeout]).finally(() => clearTimeout(timer));
+}
+
+export type CaptureTarget = { id: string; slug: string; url: string };
+export type CaptureResult = { captured: number; deferred: number; errors: { project: string; error: string }[] };
+
+/**
+ * Captures every target (one browser, sequential) within a hard time budget: every shot is bounded,
+ * not just the loop, because the function is killed at maxDuration and a killed sync records nothing.
+ * Targets left over when the budget runs out are picked up by the next sync (their capture is still missing).
+ */
 export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_000): Promise<CaptureResult> {
-  const out: CaptureResult = { captured: 0, errors: [] };
+  const out: CaptureResult = { captured: 0, deferred: 0, errors: [] };
   if (!targets.length) return out;
-  const started = Date.now();
+  const deadline = Date.now() + budgetMs;
+  const left = () => deadline - Date.now();
   let browser: Browser | null = null;
   try {
-    browser = await launchBrowser();
+    browser = await withTimeout(launchBrowser(), 30_000);
   } catch (err) {
     if (!fallbackEnabled()) {
       out.errors.push({ project: "chromium", error: errorMessage(err) });
@@ -152,21 +171,26 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
     out.errors.push({ project: "chromium", error: `Chromium indisponible, repli sur Microlink : ${errorMessage(err).split("\n")[0]}` });
   }
   try {
-    for (const t of targets) {
-      if (Date.now() - started > budgetMs) {
-        out.errors.push({ project: t.slug, error: "Captures : budget de temps dépassé, reprise à la prochaine sync." });
-        continue;
+    for (const [i, t] of targets.entries()) {
+      if (left() < SHOT_MIN_MS * 2) {
+        out.deferred = targets.length - i;
+        break;
       }
       for (const kind of Object.keys(VIEWPORTS) as Kind[]) {
         try {
           let shot: Shot;
           try {
             if (!browser) throw new Error("no browser");
-            shot = await shoot(browser, t.url, kind);
+            shot = await withTimeout(shoot(browser, t.url, kind), Math.min(SHOT_MAX_MS, left()));
           } catch (err) {
+            if (err instanceof ShotTimeout && browser) {
+              // A page that hangs can wedge the browser: start a fresh one for the next shot.
+              await browser.close().catch(() => {});
+              browser = await launchBrowser().catch(() => null);
+            }
             // A rejected page (login wall, error page) is the site's state, not a tooling problem: no retry.
-            if (err instanceof CaptureRejected || !fallbackEnabled()) throw err;
-            shot = await shootMicrolink(t.url, kind);
+            if (err instanceof CaptureRejected || !fallbackEnabled() || left() < SHOT_MIN_MS) throw err;
+            shot = await shootMicrolink(t.url, kind, Math.min(SHOT_MAX_MS, left() - 5_000));
           }
           const data = shot.data;
           if (kind === "desktop") await refreshIcon(t.id, shot.icons).catch(() => false);
@@ -180,7 +204,9 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
           });
           out.captured++;
         } catch (err) {
-          out.errors.push({ project: t.slug, error: `Capture ${kind} : ${errorMessage(err).split("\n")[0]}` });
+          const error = `Capture ${kind} : ${errorMessage(err).split("\n")[0]}`;
+          console.error(`[capture] ${t.slug} ${error}`);
+          out.errors.push({ project: t.slug, error });
         }
       }
     }

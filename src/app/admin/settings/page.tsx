@@ -69,7 +69,12 @@ export default async function AdminSettings() {
                     {relativeTime(r.startedAt)}
                   </span>{" "}
                   <span className="text-xs text-muted">
-                    ({r.trigger}) {s ? `${s.detected} détectés, ${s.created} nouveaux, ${s.updated} maj` : ""}
+                    ({r.trigger}){" "}
+                    {r.finishedAt
+                      ? s
+                        ? `${s.detected} détectés, ${s.created} nouveaux, ${s.updated} maj, ${s.captured ?? 0} captures${s.deferred ? `, ${s.deferred} reportées` : ""}`
+                        : ""
+                      : "en cours…"}
                   </span>
                   {r.error && <p className="text-xs text-danger">{r.error}</p>}
                   {s?.errors?.slice(0, 3).map((e, i) => (

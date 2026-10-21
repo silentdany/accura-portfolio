@@ -100,11 +100,11 @@ export async function deleteProject(id: string): Promise<ActionState> {
 export async function syncNow(): Promise<ActionState> {
   await requireSession();
   try {
-    const s = await runSync("admin");
+    const s = await runSync("admin", { capturesInBackground: true });
     revalidatePath("/", "layout");
     return {
       ok: true,
-      message: `${s.detected} détectés · ${s.created} nouveaux · ${s.updated} mis à jour${s.enriched ? ` · ${s.enriched} enrichis (IA)` : ""}${s.captured ? ` · ${s.captured} captures` : ""}${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}`,
+      message: `${s.detected} détectés · ${s.created} nouveaux · ${s.updated} mis à jour${s.enriched ? ` · ${s.enriched} enrichis (IA)` : ""}${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}${s.capturing ? " · captures en cours (Réglages pour le résultat)" : ""}`,
     };
   } catch (err) {
     return { error: errorMessage(err) };

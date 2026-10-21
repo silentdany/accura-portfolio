@@ -6,6 +6,8 @@ import { SignOutButton } from "@/components/admin/sign-out";
 import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
+// "Synchroniser" and "Recapturer" are server actions of these pages; the sync stops itself at 250 s.
+export const maxDuration = 300;
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const session = await requireSession();

@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
@@ -28,6 +29,8 @@ export type SyncStats = {
   skipped: number;
   enriched: number;
   captured: number;
+  /** Projects whose capture did not fit in this run's time budget; the next sync takes them first. */
+  deferred: number;
   errors: { project: string; error: string }[];
   sources: { vercel: boolean; github: boolean; ai: boolean };
 };
@@ -193,8 +196,30 @@ async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => numbe
   if (home?.icons.length) await refreshIcon(projectId, home.icons).catch(() => false);
 }
 
-export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncStats & { id: string }> {
+/** Functions are killed at maxDuration (300 s). A killed sync records nothing, so it stops well before. */
+const SYNC_BUDGET_MS = 250_000;
+/** A run still open after this long was killed mid-way. */
+const STALE_MS = 6 * 60_000;
+
+export class SyncBusy extends Error {}
+
+/**
+ * One sync at a time. With `capturesInBackground`, it returns once the projects are synced (~15 s)
+ * and the screenshots carry on after the response (`after()`), within the same deadline.
+ */
+export async function runSync(
+  trigger: "cron" | "admin" | "api",
+  opts: { capturesInBackground?: boolean } = {},
+): Promise<SyncStats & { id: string; capturing: boolean }> {
+  await prisma.syncRun.updateMany({
+    where: { finishedAt: null, startedAt: { lt: new Date(Date.now() - STALE_MS) } },
+    data: { finishedAt: new Date(), ok: false, error: "Interrompue : la fonction a dépassé son délai." },
+  });
+  if (await prisma.syncRun.findFirst({ where: { finishedAt: null }, select: { id: true } })) {
+    throw new SyncBusy("Une synchronisation est déjà en cours. Elle se termine en moins de 5 minutes.");
+  }
   const run = await prisma.syncRun.create({ data: { trigger } });
+  const deadline = run.startedAt.getTime() + SYNC_BUDGET_MS;
   const stats: SyncStats = {
     detected: 0,
     created: 0,
@@ -202,9 +227,32 @@ export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncSt
     skipped: 0,
     enriched: 0,
     captured: 0,
+    deferred: 0,
     errors: [],
     sources: { vercel: false, github: false, ai: aiEnabled() },
   };
+  const finish = (error?: string) =>
+    prisma.syncRun.update({
+      where: { id: run.id },
+      data: {
+        finishedAt: new Date(),
+        ok: !error && stats.errors.length === 0,
+        error: error ?? null,
+        stats: stats as unknown as Prisma.InputJsonValue,
+      },
+    });
+  const captures = async () => {
+    try {
+      const shots = await captureProjects(await captureTargets(), deadline - Date.now());
+      stats.captured = shots.captured;
+      stats.deferred = shots.deferred;
+      stats.errors.push(...shots.errors);
+      await finish();
+    } catch (err) {
+      await finish(errorMessage(err));
+    }
+  };
+
   try {
     const candidates = await collectCandidates(stats);
     stats.detected = candidates.length;
@@ -217,22 +265,14 @@ export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncSt
         stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
       }
     });
-    if (capturesEnabled()) {
-      const elapsed = Date.now() - run.startedAt.getTime();
-      const shots = await captureProjects(await captureTargets(), Math.max(30_000, 260_000 - elapsed));
-      stats.captured = shots.captured;
-      stats.errors.push(...shots.errors);
-    }
-    await prisma.syncRun.update({
-      where: { id: run.id },
-      data: { finishedAt: new Date(), ok: stats.errors.length === 0, stats: stats as unknown as Prisma.InputJsonValue },
-    });
   } catch (err) {
-    await prisma.syncRun.update({
-      where: { id: run.id },
-      data: { finishedAt: new Date(), ok: false, error: errorMessage(err), stats: stats as unknown as Prisma.InputJsonValue },
-    });
+    await finish(errorMessage(err));
     throw err;
   }
-  return { ...stats, id: run.id };
+
+  const capturing = capturesEnabled() && Boolean(opts.capturesInBackground);
+  if (!capturesEnabled()) await finish();
+  else if (capturing) after(captures);
+  else await captures();
+  return { ...stats, id: run.id, capturing };
 }
