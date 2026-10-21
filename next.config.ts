@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   partialPrefetching: false,
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
+  // @sparticuz/chromium reads its compressed binary from disk at runtime: ship it with every
+  // function that can launch a browser (sync, captures, PDF, admin actions).
+  outputFileTracingIncludes: {
+    "/api/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/admin/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -6,12 +6,15 @@ import { siteUrl } from "@/lib/env";
 
 /**
  * Single-owner admin (same model as Accura Watch).
- * - OWNER_EMAIL set → only that email may sign up / sign in.
+ * - OWNER_EMAIL set (comma-separated list allowed) → only those emails may sign up / sign in.
  * - OWNER_EMAIL unset → the first account created becomes the owner.
  * Sign-up closes once a user exists.
  * Phase 2: unified accura.dev portal — set AUTH_COOKIE_DOMAIN=.accura.dev to share the session.
  */
-const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim().toLowerCase() || null;
+const OWNER_EMAILS = (process.env.OWNER_EMAIL ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret && process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
@@ -19,8 +22,8 @@ if (!secret && process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !
 }
 
 function assertOwnerEmail(email: unknown): void {
-  if (!OWNER_EMAIL) return;
-  if (typeof email !== "string" || email.toLowerCase() !== OWNER_EMAIL) {
+  if (!OWNER_EMAILS.length) return;
+  if (typeof email !== "string" || !OWNER_EMAILS.includes(email.trim().toLowerCase())) {
     throw new APIError("FORBIDDEN", { message: "Seul le compte propriétaire peut se connecter." });
   }
 }

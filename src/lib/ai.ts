@@ -2,7 +2,8 @@ import { env } from "@/lib/env";
 
 /**
  * Optional enrichment through an OpenAI-compatible gateway (Vercel AI Gateway, OpenRouter, …).
- * Set AI_GATEWAY_URL (e.g. https://ai-gateway.vercel.sh/v1), AI_GATEWAY_API_KEY and optionally AI_MODEL.
+ * On Vercel it is on by default (AI Gateway + the deployment's OIDC token). Elsewhere, set
+ * AI_GATEWAY_URL (e.g. https://ai-gateway.vercel.sh/v1) and AI_GATEWAY_API_KEY. AI_MODEL is optional.
  */
 export function aiEnabled(): boolean {
   return Boolean(env.aiBaseUrl() && env.aiKey());

@@ -16,8 +16,10 @@ export const env = {
   vercelTeamId: () => process.env.VERCEL_TEAM_ID?.trim() || null,
   watchUrl: () => process.env.WATCH_URL?.trim().replace(/\/+$/, "") || null,
   watchToken: () => process.env.WATCH_TOKEN?.trim() || null,
-  aiBaseUrl: () => process.env.AI_GATEWAY_URL?.trim().replace(/\/+$/, "") || null,
-  aiKey: () => process.env.AI_GATEWAY_API_KEY?.trim() || null,
+  /** On Vercel, AI Gateway works with no key at all: the deployment's OIDC token authenticates it. */
+  aiBaseUrl: () =>
+    process.env.AI_GATEWAY_URL?.trim().replace(/\/+$/, "") || (process.env.VERCEL_OIDC_TOKEN ? "https://ai-gateway.vercel.sh/v1" : null),
+  aiKey: () => process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim() || null,
   aiModel: () => process.env.AI_MODEL?.trim() || "anthropic/claude-haiku-5.5",
   apiToken: () => process.env.PORTFOLIO_API_TOKEN?.trim() || null,
   cronSecret: () => process.env.CRON_SECRET?.trim() || null,
