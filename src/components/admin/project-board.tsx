@@ -35,6 +35,7 @@ export type AdminProject = {
   image: string | null;
   screenshots: string[];
   capture: { desktop: string | null; mobile: string | null };
+  icon: string | null;
   size: "sm" | "wide" | "tall" | "lg";
   pinned: boolean;
   hidden: boolean;
@@ -237,7 +238,13 @@ function SortableCard({
           {p.watchResolved && <span className="rounded bg-surface-2 px-1">watch:{p.watchResolved}</span>}
         </div>
         <button type="button" onClick={onEdit} className="mt-1 block text-left">
-          <span className="line-clamp-1 title text-base text-ink">{p.name}</span>
+          <span className="flex items-center gap-2">
+            {p.icon && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.icon} alt="" className="size-5 rounded object-contain" />
+            )}
+            <span className="line-clamp-1 title text-base text-ink">{p.name}</span>
+          </span>
           <span className="line-clamp-1 text-xs text-muted">{p.tagline ?? p.url ?? p.repoFullName}</span>
         </button>
       </div>

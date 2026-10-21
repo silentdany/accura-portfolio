@@ -27,6 +27,8 @@ export type PublicProject = {
   stars: number;
   /** Card image: admin override, else the live desktop capture, else README screenshot, else og:image. */
   image: string | null;
+  /** The site's own icon (apple-touch-icon / favicon), stored by the sync. Null for locked NDA projects. */
+  icon: string | null;
   /** Live captures of the production site (headless Chromium, refreshed by the sync). */
   capture: { desktop: string | null; mobile: string | null };
   screenshots: string[];
@@ -57,7 +59,7 @@ export function projectUrl(p: Pick<Project, "url" | "urlOverride">): string | nu
   return p.urlOverride || p.url || null;
 }
 
-function captureUrl(p: ProjectRow, kind: "desktop" | "mobile", base: string): string | null {
+function captureUrl(p: ProjectRow, kind: "desktop" | "mobile" | "icon", base: string): string | null {
   const c = p.captures?.find((x) => x.kind === kind);
   return c ? `${base}/api/captures/${p.slug}/${kind}?v=${c.hash}` : null;
 }
@@ -96,6 +98,7 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
       topics: [],
       stars: 0,
       image: null,
+      icon: null,
       capture: { desktop: null, mobile: null },
       screenshots: [],
       lastUpdatedAt: p.lastUpdatedAt?.toISOString() ?? null,
@@ -114,6 +117,7 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
     topics: p.topics,
     stars: p.stars,
     image,
+    icon: captureUrl(p, "icon", origin),
     capture,
     screenshots,
     lastUpdatedAt: p.lastUpdatedAt?.toISOString() ?? null,

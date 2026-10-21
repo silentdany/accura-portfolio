@@ -7,6 +7,7 @@ import { hostname, slugify } from "@/lib/slug";
 import { listDeployedProjects, type DeployedProject } from "@/lib/vercel";
 import { folderScreenshots, getLanguages, getReadme, getRepo, listOwnerRepos, readmeImages, type GhRepo } from "@/lib/github";
 import { fetchHomepageMeta } from "@/lib/homepage";
+import { refreshIcon } from "@/lib/icon";
 import { aiEnabled, enrichProject } from "@/lib/ai";
 import { captureProjects, capturesEnabled, captureTargets } from "@/lib/capture";
 
@@ -170,12 +171,14 @@ async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => numbe
     }
   }
 
+  let projectId: string;
   if (existing) {
     await prisma.project.update({ where: { id: existing.id }, data: { ...data, ...ai } });
+    projectId = existing.id;
     stats.updated++;
   } else {
     const slug = await uniqueSlug(slugify(c.deployed?.name ?? c.repo?.name ?? name));
-    await prisma.project.create({
+    const created = await prisma.project.create({
       data: {
         ...data,
         ...ai,
@@ -184,8 +187,10 @@ async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => numbe
         size: shots.length || home?.ogImage ? "wide" : "sm",
       },
     });
+    projectId = created.id;
     stats.created++;
   }
+  if (home?.icons.length) await refreshIcon(projectId, home.icons).catch(() => false);
 }
 
 export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncStats & { id: string }> {

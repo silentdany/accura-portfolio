@@ -9,7 +9,7 @@ import { isUnlocked } from "@/lib/nda";
  */
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/captures/[slug]/[kind]">) {
   const { slug, kind } = await ctx.params;
-  if (kind !== "desktop" && kind !== "mobile") return NextResponse.json({ error: "kind: desktop | mobile" }, { status: 400 });
+  if (kind !== "desktop" && kind !== "mobile" && kind !== "icon") return NextResponse.json({ error: "kind: desktop | mobile | icon" }, { status: 400 });
   const project = await prisma.project.findUnique({ where: { slug }, select: { id: true, slug: true, hidden: true, nda: true, ndaPasswordHash: true } });
   if (!project || project.hidden) return new NextResponse(null, { status: 404 });
   if (project.nda && !(await isUnlocked(project))) return new NextResponse(null, { status: 404 });
@@ -25,6 +25,9 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/captures/[sl
           ? "public, max-age=31536000, immutable"
           : "public, s-maxage=3600, stale-while-revalidate=86400",
       ETag: `"${c.hash}"`,
+      // An SVG icon is a document: never let it run script in our origin.
+      ...(c.mime === "image/svg+xml" ? { "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}),
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

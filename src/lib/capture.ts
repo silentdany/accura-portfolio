@@ -3,6 +3,7 @@ import type { Browser } from "playwright-core";
 import { prisma } from "@/lib/prisma";
 import { launchBrowser } from "@/lib/browser";
 import { errorMessage } from "@/lib/http";
+import { refreshIcon } from "@/lib/icon";
 
 /**
  * Live screenshots of each production URL (desktop 1440×900 and mobile 390×844),
@@ -48,7 +49,9 @@ function assertRealPage(finalUrl: string, title: string, status: number | null) 
   }
 }
 
-async function shoot(browser: Browser, url: string, kind: Kind): Promise<Buffer> {
+type Shot = { data: Buffer; icons: string[] };
+
+async function shoot(browser: Browser, url: string, kind: Kind): Promise<Shot> {
   const v = VIEWPORTS[kind];
   const ctx = await browser.newContext({
     viewport: v.viewport,
@@ -71,14 +74,25 @@ async function shoot(browser: Browser, url: string, kind: Kind): Promise<Buffer>
     await page.addStyleTag({ content: HIDE_BANNERS }).catch(() => {});
     await page.evaluate(() => document.fonts?.ready).catch(() => {});
     await page.waitForTimeout(1200);
-    return await page.screenshot({ type: "jpeg", quality: v.quality, fullPage: false });
+    const data = await page.screenshot({ type: "jpeg", quality: v.quality, fullPage: false });
+    // Icons as the rendered DOM declares them (covers sites that inject <link rel="icon"> client-side).
+    const icons = await page
+      .$$eval('link[rel~="icon"], link[rel="shortcut icon"], link[rel^="apple-touch-icon"]', (links) =>
+        links
+          .map((l) => ({ href: (l as HTMLLinkElement).href, apple: /apple/i.test(l.getAttribute("rel") ?? ""), sizes: l.getAttribute("sizes") ?? "" }))
+          .sort((a, b) => Number(b.apple) - Number(a.apple) || (parseInt(b.sizes) || 0) - (parseInt(a.sizes) || 0))
+          .map((l) => l.href),
+      )
+      .catch(() => [] as string[]);
+    const origin = new URL(page.url()).origin;
+    return { data, icons: [...new Set([...icons, `${origin}/apple-touch-icon.png`, `${origin}/favicon.ico`])] };
   } finally {
     await ctx.close();
   }
 }
 
 /** Microlink screenshot API (https://microlink.io/docs/api/parameters/screenshot). */
-async function shootMicrolink(url: string, kind: Kind): Promise<Buffer> {
+async function shootMicrolink(url: string, kind: Kind): Promise<Shot> {
   const v = VIEWPORTS[kind];
   const key = process.env.MICROLINK_API_KEY?.trim();
   const qs = new URLSearchParams({
@@ -102,7 +116,7 @@ async function shootMicrolink(url: string, kind: Kind): Promise<Buffer> {
   const body = (await res.json().catch(() => null)) as {
     status?: string;
     message?: string;
-    data?: { url?: string; title?: string; statusCode?: number; screenshot?: { url?: string } };
+    data?: { url?: string; title?: string; statusCode?: number; screenshot?: { url?: string }; logo?: { url?: string } | null };
   } | null;
   if (!res.ok || body?.status !== "success" || !body.data?.screenshot?.url) {
     throw new Error(`Microlink ${res.status}${body?.message ? ` : ${body.message}` : ""}`);
@@ -110,7 +124,11 @@ async function shootMicrolink(url: string, kind: Kind): Promise<Buffer> {
   assertRealPage(body.data.url ?? url, body.data.title ?? "", body.data.statusCode ?? null);
   const img = await fetch(body.data.screenshot.url, { cache: "no-store", signal: AbortSignal.timeout(30000) });
   if (!img.ok) throw new Error(`Microlink image ${img.status}`);
-  return Buffer.from(await img.arrayBuffer());
+  const origin = new URL(body.data.url ?? url).origin;
+  return {
+    data: Buffer.from(await img.arrayBuffer()),
+    icons: [...(body.data.logo?.url ? [body.data.logo.url] : []), `${origin}/apple-touch-icon.png`, `${origin}/favicon.ico`],
+  };
 }
 
 const fallbackEnabled = () => process.env.CAPTURE_FALLBACK !== "off";
@@ -141,15 +159,17 @@ export async function captureProjects(targets: CaptureTarget[], budgetMs = 200_0
       }
       for (const kind of Object.keys(VIEWPORTS) as Kind[]) {
         try {
-          let data: Buffer;
+          let shot: Shot;
           try {
             if (!browser) throw new Error("no browser");
-            data = await shoot(browser, t.url, kind);
+            shot = await shoot(browser, t.url, kind);
           } catch (err) {
             // A rejected page (login wall, error page) is the site's state, not a tooling problem: no retry.
             if (err instanceof CaptureRejected || !fallbackEnabled()) throw err;
-            data = await shootMicrolink(t.url, kind);
+            shot = await shootMicrolink(t.url, kind);
           }
+          const data = shot.data;
+          if (kind === "desktop") await refreshIcon(t.id, shot.icons).catch(() => false);
           const hash = createHash("sha1").update(data).digest("hex").slice(0, 12);
           const { width, height } = VIEWPORTS[kind].viewport;
           const dims = { width: width * VIEWPORTS[kind].deviceScaleFactor, height: height * VIEWPORTS[kind].deviceScaleFactor };
@@ -184,8 +204,8 @@ export async function captureTargets(opts: { force?: boolean; ids?: string[]; ma
     .filter(
       (r) =>
         opts.force ||
-        r.captures.length < 2 ||
-        r.captures.some((c) => c.url !== r.target || c.takenAt.getTime() < maxAge),
+        r.captures.filter((c) => c.kind !== "icon").length < 2 ||
+        r.captures.some((c) => c.kind !== "icon" && (c.url !== r.target || c.takenAt.getTime() < maxAge)),
     )
     .map((r) => ({ id: r.id, slug: r.slug, url: r.target }));
 }

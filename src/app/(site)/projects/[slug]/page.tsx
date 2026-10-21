@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowUpRight, Lock, Star } from "lucide-react";
 import { GithubIcon } from "@/components/icons";
 import { PageShell, PDF_ALL } from "@/components/page-shell";
 import { RawProject } from "@/components/raw/raw-pages";
-import { ProjectTile } from "@/components/bento/project-tile";
+import { ProjectIcon, ProjectTile } from "@/components/bento/project-tile";
 import { Sparkline } from "@/components/sparkline";
 import { Backdrop } from "@/components/backdrop";
 import { BrowserShot, PhoneShot } from "@/components/shots";
@@ -92,7 +92,10 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
                 </Link>
               ))}
             </div>
-            <h1 className="headline mt-6">{p.name}</h1>
+            <div className="mt-6 flex items-center gap-5">
+              {p.icon && <ProjectIcon p={p} size="size-14 sm:size-16" />}
+              <h1 className="headline">{p.name}</h1>
+            </div>
             {p.tagline && <p className="mt-6 max-w-2xl text-xl leading-snug text-muted sm:text-2xl">{p.tagline}</p>}
             {!p.locked && (
               <div className="no-print mt-9 flex flex-wrap items-center gap-3">

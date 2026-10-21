@@ -9,20 +9,12 @@ import { StatusDot } from "@/components/status-dot";
 import { Sparkline } from "@/components/sparkline";
 import { BrowserShot, EmptyShot, PhoneShot } from "@/components/shots";
 
-function Favicon({ p }: { p: PublicProject }) {
-  return (
-    <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg border border-line bg-surface-2 text-xs font-semibold text-ink">
-      {p.name.slice(0, 1)}
-      {p.domain && (
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${p.domain}&sz=64`}
-          alt=""
-          loading="lazy"
-          className="absolute inset-1.5 size-5 rounded-sm bg-surface-2 object-contain"
-          onError={(e) => e.currentTarget.remove()}
-        />
-      )}
-    </span>
+/** The site's own icon when the sync found one, otherwise a monogram (never a broken image). */
+export function ProjectIcon({ p, size = "size-8" }: { p: Pick<PublicProject, "name" | "icon">; size?: string }) {
+  return p.icon ? (
+    <img src={p.icon} alt="" loading="lazy" decoding="async" className={`${size} shrink-0 rounded-lg border border-line bg-surface object-contain p-1`} />
+  ) : (
+    <span className={`grid ${size} shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-xs font-semibold text-ink`}>{p.name.slice(0, 1)}</span>
   );
 }
 
@@ -50,7 +42,7 @@ function Header({ p, big = false }: { p: PublicProject; big?: boolean }) {
   return (
     <div className="relative z-10">
       <div className="flex items-center gap-2.5">
-        <Favicon p={p} />
+        <ProjectIcon p={p} />
         <div className="min-w-0 flex-1">
           <h3 className={`title truncate text-ink ${big ? "text-2xl sm:text-[28px]" : "text-[17px]"}`}>{p.name}</h3>
           {p.domain && (

@@ -29,6 +29,7 @@ export default async function AdminProjects() {
       image: pub.image,
       screenshots: pub.screenshots,
       capture: pub.capture,
+      icon: pub.icon,
       size: r.size,
       pinned: r.pinned,
       hidden: r.hidden,

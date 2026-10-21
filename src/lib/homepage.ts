@@ -1,5 +1,7 @@
-/** Scrape a production homepage for og:image / description / visible text (best effort). */
-export type HomepageMeta = { ogImage: string | null; description: string | null; text: string | null; title: string | null };
+import { iconCandidates } from "@/lib/icon";
+
+/** Scrape a production homepage for og:image / description / visible text / icons (best effort). */
+export type HomepageMeta = { ogImage: string | null; description: string | null; text: string | null; title: string | null; icons: string[] };
 
 function meta(html: string, names: string[]): string | null {
   for (const name of names) {
@@ -23,7 +25,7 @@ function decode(s: string): string {
 }
 
 export async function fetchHomepageMeta(url: string): Promise<HomepageMeta> {
-  const empty = { ogImage: null, description: null, text: null, title: null };
+  const empty: HomepageMeta = { ogImage: null, description: null, text: null, title: null, icons: [] };
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; AccuraPortfolioBot/1.0; +https://accura.dev)" },
@@ -47,6 +49,7 @@ export async function fetchHomepageMeta(url: string): Promise<HomepageMeta> {
       description: description ? decode(description) : null,
       text: text || null,
       title: title ? decode(title) : null,
+      icons: iconCandidates(html, res.url),
     };
   } catch {
     return empty;

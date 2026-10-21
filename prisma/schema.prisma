@@ -138,6 +138,7 @@ model Project {
 enum CaptureKind {
   desktop
   mobile
+  icon // the site's own icon (apple-touch-icon / favicon), fetched by the sync
 }
 
 /// Live screenshots of the production URL, taken by the sync (headless Chromium).
