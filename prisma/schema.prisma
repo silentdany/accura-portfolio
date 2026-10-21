@@ -1,0 +1,207 @@
+// Accura Portfolio — automated bento portfolio, REST + MCP native
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Better Auth (standard schema) ──────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ─── Portfolio ──────────────────────────────────────────────────────────────
+
+enum CardSize {
+  sm    // 1×1
+  wide  // 2×1
+  tall  // 1×2
+  lg    // 2×2
+}
+
+/// One deployed project = one bento card + one /projects/[slug] page.
+/// Fields filled by the sync are raw data; `*Override` fields are set in the admin and always win.
+model Project {
+  id                String     @id @default(cuid())
+  slug              String     @unique
+  // Raw data (sync)
+  name              String
+  description       String?
+  url               String?
+  repoFullName      String?    @unique
+  repoUrl           String?
+  repoPrivate       Boolean    @default(false)
+  vercelProjectId   String?    @unique
+  language          String?
+  languages         String[]
+  topics            String[]
+  stars             Int        @default(0)
+  screenshots       String[]
+  ogImage           String?
+  lastUpdatedAt     DateTime?
+  syncedAt          DateTime?
+  // AI enrichment (optional)
+  aiTagline         String?
+  aiDescription     String?
+  aiInputHash       String?
+  // Admin overrides
+  nameOverride      String?
+  taglineOverride   String?
+  descriptionOverride String?
+  urlOverride       String?
+  imageOverride     String?
+  // Layout & curation
+  position          Int        @default(0)
+  size              CardSize   @default(sm)
+  pinned            Boolean    @default(false)
+  hidden            Boolean    @default(false)
+  // NDA mode: title + context public, the rest behind a password
+  nda               Boolean    @default(false)
+  ndaContext        String?
+  ndaPasswordHash   String?
+  // Accura Watch mapping (site slug); null → auto-match on domain
+  watchSlug         String?
+  manual            Boolean    @default(false) // created by hand, never touched by the sync
+  categories        Category[]
+  threads           Thread[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([hidden, position])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  name      String
+  emoji     String?
+  position  Int       @default(0)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+}
+
+enum ThreadStatus {
+  active
+  archived
+}
+
+/// A build-in-public thread. One active thread = the /now page; archived → /stories/[slug].
+model Thread {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  status      ThreadStatus @default(active)
+  brief       String?      // daily 2-line brief (Grok bots, via API/MCP)
+  briefAt     DateTime?
+  summary     String?      // story intro, shown once archived
+  cover       String?
+  threadUrl   String?      // e.g. the X thread
+  repos       String[]     // "owner/repo" whose commits prove activity; empty → all recent repos
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  posts       ThreadPost[]
+  startedAt   DateTime     @default(now())
+  archivedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status])
+}
+
+model ThreadPost {
+  id        String   @id @default(cuid())
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  title     String?
+  body      String
+  url       String?
+  images    String[]
+  milestone Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([threadId, date])
+}
+
+/// Singleton-ish key/value settings (profile, links, default view).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model SyncRun {
+  id         String    @id @default(cuid())
+  trigger    String    // cron | admin | api
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  ok         Boolean?
+  stats      Json?
+  error      String?
+
+  @@index([startedAt])
+}
