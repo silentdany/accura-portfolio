@@ -1,20 +1,16 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { VIEW_COOKIE, VIEWS, type ViewId } from "@/lib/views";
-import { setPrefCookie } from "@/lib/client-cookie";
+import { VIEWS, type ViewId } from "@/lib/views";
 
 export function ViewSwitcher({ current }: { current: ViewId }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   function pick(id: ViewId) {
-    setPrefCookie(VIEW_COOKIE, id);
     const sp = new URLSearchParams(params.toString());
-    sp.delete("view");
-    const qs = sp.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
-    router.refresh();
+    sp.set("view", id);
+    router.push(`${pathname}?${sp.toString()}`);
   }
   return (
     <div role="radiogroup" aria-label="Affichage" className="hidden items-center rounded-full border border-line bg-ink/[0.035] p-0.5 text-xs sm:flex">
