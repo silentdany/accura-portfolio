@@ -27,10 +27,11 @@ export default async function StoriesPage({ searchParams }: PageProps<"/stories"
 
   return (
     <PageShell view={view} pdf={[PDF_ALL]} active="/stories">
-      <header className="max-w-3xl animate-rise">
-        <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">Stories</p>
-        <h1 className="mt-4 font-serif text-6xl leading-[0.95] tracking-tight text-ink sm:text-8xl">Ce qui a été construit.</h1>
-        <p className="mt-5 text-lg text-ink-2">Chaque thread terminé, du premier post à la mise en ligne.</p>
+      <header className="max-w-4xl animate-reveal">
+        <span className="eyebrow">Stories</span>
+        <h1 className="headline mt-7">
+          Ce qui a été construit, <span className="text-muted">du premier post</span> <span className="accent-word">à la prod.</span>
+        </h1>
       </header>
       {stories.length === 0 ? (
         <p className="mt-12 text-muted">Aucune story archivée pour l&apos;instant — le thread en cours est sur la page Now.</p>
@@ -39,7 +40,7 @@ export default async function StoriesPage({ searchParams }: PageProps<"/stories"
           {stories.map((s, i) => {
             const cover = s.cover ?? s.posts.find((p) => p.images.length)?.images[0] ?? null;
             return (
-              <li key={s.slug} className="animate-rise" style={{ animationDelay: `${i * 60}ms` }}>
+              <li key={s.slug} className="animate-reveal" style={{ animationDelay: `${i * 60}ms` }}>
                 <Link href={`/stories/${s.slug}`} className="tile group flex h-full flex-col">
                   {cover && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -49,10 +50,10 @@ export default async function StoriesPage({ searchParams }: PageProps<"/stories"
                     <p className="font-mono text-[11px] text-subtle">
                       {formatDate(s.startedAt)} → {formatDate(s.archivedAt)} · {s.posts.length} posts
                     </p>
-                    <h2 className="mt-2 font-serif text-3xl text-ink">{s.title}</h2>
+                    <h2 className="title mt-2 text-2xl text-ink">{s.title}</h2>
                     {(s.summary || s.brief) && <p className="mt-2 line-clamp-3 text-sm text-muted">{s.summary ?? s.brief}</p>}
-                    <span className="mt-auto flex items-center gap-1 pt-5 text-sm text-ink">
-                      Lire la story <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+                    <span className="mt-auto flex items-center gap-1 pt-5 text-sm font-medium text-ink">
+                      Lire la story <ArrowRight className="size-4 transition group-hover:translate-x-1 group-hover:text-primary" />
                     </span>
                   </div>
                 </Link>

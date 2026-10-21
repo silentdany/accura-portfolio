@@ -49,7 +49,7 @@ export const TOOLS: Tool[] = [
     annotations: read,
     async handler({ category, query, with_stats }) {
       const watch = with_stats === false ? null : await getWatchIndex();
-      return { projects: await listProjects({ category, query, watch }) };
+      return { projects: await listProjects({ category, query, watch, absolute: true }) };
     },
   }),
   tool({
@@ -61,7 +61,7 @@ export const TOOLS: Tool[] = [
     async handler({ slug }) {
       const row = await getProjectRow(slug);
       if (!row || row.hidden) throw new Error(`Projet introuvable : ${slug}`);
-      return presentProject(row, { watch: await getWatchIndex() });
+      return presentProject(row, { watch: await getWatchIndex(), absolute: true });
     },
   }),
   tool({

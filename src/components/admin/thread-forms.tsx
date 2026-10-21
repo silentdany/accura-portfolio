@@ -96,7 +96,7 @@ export function PostList({ posts }: { posts: PublicThread["posts"] }) {
         <li key={p.id} className="flex items-start gap-3 py-2.5">
           <span className="w-24 shrink-0 font-mono text-[11px] text-subtle">{formatDate(p.date, true)}</span>
           <p className="line-clamp-2 flex-1 text-sm text-ink-2">
-            {p.milestone && <span className="mr-1 rounded bg-clay/20 px-1 text-[10px] text-clay">jalon</span>}
+            {p.milestone && <span className="mr-1 rounded bg-accent-soft px-1 text-[10px] text-primary">jalon</span>}
             {p.title && <b className="text-ink">{p.title}. </b>}
             {p.body}
           </p>
@@ -156,7 +156,7 @@ export function StoryRow({ story, id, projects }: { story: PublicThread; id: str
   return (
     <details className={`tile group p-4 ${pending ? "opacity-60" : ""}`}>
       <summary className="flex cursor-pointer list-none items-center gap-3">
-        <span className="font-serif text-xl text-ink">{story.title}</span>
+        <span className="title text-base text-ink">{story.title}</span>
         <span className="font-mono text-[11px] text-subtle">
           {formatDate(story.startedAt, true)} → {formatDate(story.archivedAt, true)} · {story.posts.length} posts
         </span>

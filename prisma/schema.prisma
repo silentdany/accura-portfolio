@@ -128,10 +128,34 @@ model Project {
   manual            Boolean    @default(false) // created by hand, never touched by the sync
   categories        Category[]
   threads           Thread[]
+  captures          Capture[]
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
   @@index([hidden, position])
+}
+
+enum CaptureKind {
+  desktop
+  mobile
+}
+
+/// Live screenshots of the production URL, taken by the sync (headless Chromium).
+/// Stored in Postgres (a few hundred KB per project) and served by /api/captures/[slug]/[kind].
+model Capture {
+  id        String      @id @default(cuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  kind      CaptureKind
+  url       String
+  hash      String
+  width     Int
+  height    Int
+  mime      String      @default("image/jpeg")
+  data      Bytes
+  takenAt   DateTime    @default(now())
+
+  @@unique([projectId, kind])
 }
 
 model Category {

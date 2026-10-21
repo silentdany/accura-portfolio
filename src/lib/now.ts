@@ -27,3 +27,8 @@ export async function recentCommits(repos: string[], days = 7): Promise<CommitGr
   );
   return groups.filter((g) => g.commits.length).sort((a, b) => b.commits.length - a.commits.length);
 }
+
+/** ISO dates (YYYY-MM-DD) of the last `n` days, oldest first. */
+export function lastDays(n = 7, now = new Date()): string[] {
+  return Array.from({ length: n }, (_, i) => new Date(now.getTime() - (n - 1 - i) * 86400_000).toISOString().slice(0, 10));
+}

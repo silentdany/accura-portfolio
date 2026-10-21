@@ -8,6 +8,9 @@ export const linkSchema = z.object({ label: z.string().min(1).max(40), url: z.st
 export const profileSchema = z.object({
   name: z.string().min(1).max(60),
   headline: z.string().max(140),
+  /** Second headline line (muted), ending with the red serif accent word(s). */
+  headlineTail: z.string().max(80).optional().default(""),
+  headlineAccent: z.string().max(40).optional().default(""),
   bio: z.string().max(600),
   location: z.string().max(60).optional().default(""),
   email: z.string().max(120).optional().default(""),
@@ -21,17 +24,20 @@ export type Profile = z.infer<typeof profileSchema>;
 
 export const DEFAULT_PROFILE: Profile = {
   name: "Dany",
-  headline: "Je conçois et je code des produits web — SaaS, outils MCP et sites qui tiennent la route.",
+  headline: "Je conçois et je code des produits web",
+  headlineTail: "qui tournent",
+  headlineAccent: "en production.",
   bio: "Fondateur d'Accura. Next.js, TypeScript, Postgres et beaucoup d'automatisation. Ce portfolio se met à jour tout seul depuis Vercel et GitHub.",
   location: "France",
   email: "dany@accura.dev",
-  avatar: "",
+  avatar: "/dany.jpg",
   available: true,
   availability: "Disponible pour des missions",
   links: [
     { label: "accura.dev", url: "https://accura.dev" },
     { label: "GitHub", url: "https://github.com/silentdany" },
-    { label: "X", url: "https://x.com" },
+    { label: "X", url: "https://x.com/MajorBaguette" },
+    { label: "LinkedIn", url: "https://www.linkedin.com/in/alexandre-dagnicourt/" },
   ],
 };
 

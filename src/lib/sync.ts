@@ -8,12 +8,14 @@ import { listDeployedProjects, type DeployedProject } from "@/lib/vercel";
 import { folderScreenshots, getLanguages, getReadme, getRepo, listOwnerRepos, readmeImages, type GhRepo } from "@/lib/github";
 import { fetchHomepageMeta } from "@/lib/homepage";
 import { aiEnabled, enrichProject } from "@/lib/ai";
+import { captureProjects, capturesEnabled, captureTargets } from "@/lib/capture";
 
 /**
  * Weekly sync (Vercel Cron → /api/cron/sync, or "Synchroniser" in the admin):
  * Vercel projects with a READY production deployment, crossed with the GitHub repos of GITHUB_OWNER.
  * Repos with a homepage but no Vercel project are included too (SYNC_GITHUB_HOMEPAGES=false to disable).
- * Admin curation (overrides, order, categories, NDA, hidden) is never touched.
+ * Then live screenshots (desktop + mobile) are taken for projects whose capture is missing or older than 6 days
+ * (SYNC_CAPTURES=false to disable). Admin curation (overrides, order, categories, NDA, hidden) is never touched.
  */
 
 type Candidate = { deployed: DeployedProject | null; repo: GhRepo | null; url: string | null };
@@ -24,6 +26,7 @@ export type SyncStats = {
   updated: number;
   skipped: number;
   enriched: number;
+  captured: number;
   errors: { project: string; error: string }[];
   sources: { vercel: boolean; github: boolean; ai: boolean };
 };
@@ -193,6 +196,7 @@ export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncSt
     updated: 0,
     skipped: 0,
     enriched: 0,
+    captured: 0,
     errors: [],
     sources: { vercel: false, github: false, ai: aiEnabled() },
   };
@@ -208,6 +212,12 @@ export async function runSync(trigger: "cron" | "admin" | "api"): Promise<SyncSt
         stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
       }
     });
+    if (capturesEnabled()) {
+      const elapsed = Date.now() - run.startedAt.getTime();
+      const shots = await captureProjects(await captureTargets(), Math.max(30_000, 260_000 - elapsed));
+      stats.captured = shots.captured;
+      stats.errors.push(...shots.errors);
+    }
     await prisma.syncRun.update({
       where: { id: run.id },
       data: { finishedAt: new Date(), ok: stats.errors.length === 0, stats: stats as unknown as Prisma.InputJsonValue },

@@ -1,4 +1,4 @@
-import type { Category, CardSize, Prisma, Project, Thread, ThreadPost } from "@prisma/client";
+import type { Capture, Category, CardSize, Prisma, Project, Thread, ThreadPost } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/env";
 import { hostname } from "@/lib/slug";
@@ -9,7 +9,7 @@ import type { WatchIndex, WatchStats } from "@/lib/watch";
  * Everything public goes through `presentProject`, which applies overrides and NDA redaction.
  */
 
-type ProjectRow = Project & { categories: Category[] };
+type ProjectRow = Project & { categories: Category[]; captures?: Pick<Capture, "kind" | "hash">[] };
 
 export type PublicCategory = { slug: string; name: string; emoji: string | null };
 
@@ -25,7 +25,10 @@ export type PublicProject = {
   languages: string[];
   topics: string[];
   stars: number;
+  /** Card image: admin override, else the live desktop capture, else README screenshot, else og:image. */
   image: string | null;
+  /** Live captures of the production site (headless Chromium, refreshed by the sync). */
+  capture: { desktop: string | null; mobile: string | null };
   screenshots: string[];
   lastUpdatedAt: string | null;
   size: CardSize;
@@ -39,7 +42,10 @@ export type PublicProject = {
   stats: WatchStats | null;
 };
 
-const withCategories = { categories: { orderBy: { position: "asc" } } } satisfies Prisma.ProjectInclude;
+const withCategories = {
+  categories: { orderBy: { position: "asc" } },
+  captures: { select: { kind: true, hash: true } },
+} satisfies Prisma.ProjectInclude;
 
 function firstSentence(text: string | null): string | null {
   if (!text) return null;
@@ -51,12 +57,20 @@ export function projectUrl(p: Pick<Project, "url" | "urlOverride">): string | nu
   return p.urlOverride || p.url || null;
 }
 
-export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?: WatchIndex | null } = {}): PublicProject {
+function captureUrl(p: ProjectRow, kind: "desktop" | "mobile", base: string): string | null {
+  const c = p.captures?.find((x) => x.kind === kind);
+  return c ? `${base}/api/captures/${p.slug}/${kind}?v=${c.hash}` : null;
+}
+
+/** `absolute`: prefix local URLs with the site URL (REST/MCP consumers). */
+export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?: WatchIndex | null; absolute?: boolean } = {}): PublicProject {
   const locked = p.nda && !opts.unlocked;
+  const origin = opts.absolute ? siteUrl() : "";
   const url = projectUrl(p);
   const description = p.descriptionOverride || p.aiDescription || p.description || null;
   const tagline = p.taglineOverride || p.aiTagline || firstSentence(p.description);
-  const image = p.imageOverride || p.screenshots[0] || p.ogImage || null;
+  const capture = { desktop: captureUrl(p, "desktop", origin), mobile: captureUrl(p, "mobile", origin) };
+  const image = p.imageOverride || capture.desktop || p.screenshots[0] || p.ogImage || null;
   const screenshots = [...new Set([p.imageOverride, ...p.screenshots, p.ogImage].filter((x): x is string => Boolean(x)))];
   const base = {
     slug: p.slug,
@@ -82,6 +96,7 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
       topics: [],
       stars: 0,
       image: null,
+      capture: { desktop: null, mobile: null },
       screenshots: [],
       lastUpdatedAt: p.lastUpdatedAt?.toISOString() ?? null,
       stats: null,
@@ -99,6 +114,7 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
     topics: p.topics,
     stars: p.stars,
     image,
+    capture,
     screenshots,
     lastUpdatedAt: p.lastUpdatedAt?.toISOString() ?? null,
     stats: opts.watch?.resolve({ watchSlug: p.watchSlug, url }) ?? null,
@@ -126,9 +142,9 @@ export async function listProjectRows(opts: { includeHidden?: boolean; category?
   return prisma.project.findMany({ where, include: withCategories, orderBy: ORDER });
 }
 
-export async function listProjects(opts: { category?: string | null; query?: string | null; watch?: WatchIndex | null } = {}) {
+export async function listProjects(opts: { category?: string | null; query?: string | null; watch?: WatchIndex | null; absolute?: boolean } = {}) {
   const rows = await listProjectRows(opts);
-  return rows.map((p) => presentProject(p, { watch: opts.watch }));
+  return rows.map((p) => presentProject(p, { watch: opts.watch, absolute: opts.absolute }));
 }
 
 export async function getProjectRow(slug: string) {

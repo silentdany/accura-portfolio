@@ -30,7 +30,7 @@ export function CommitGroups({ groups, days = 7 }: { groups: CommitGroup[]; days
                 <span
                   key={dayKeys[i]}
                   title={`${dayKeys[i]} : ${n} commit${n > 1 ? "s" : ""}`}
-                  className="flex-1 rounded-sm bg-live/80"
+                  className="flex-1 rounded-sm bg-primary"
                   style={{ height: `${n ? 20 + (n / max) * 80 : 6}%`, opacity: n ? 1 : 0.18 }}
                 />
               ))}

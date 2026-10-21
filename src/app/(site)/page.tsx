@@ -1,9 +1,9 @@
+import { headlineText } from "@/lib/profile-text";
 import { PageShell, PDF_ALL } from "@/components/page-shell";
-import { ProfileTile } from "@/components/bento/profile-tile";
-import { LinksTile } from "@/components/bento/links-tile";
-import { NowTile } from "@/components/bento/now-tile";
-import { MetricsTile } from "@/components/bento/metrics-tile";
+import { HomeHero } from "@/components/bento/home-hero";
+import { NowTeaser } from "@/components/bento/now-teaser";
 import { PortfolioGrid } from "@/components/bento/portfolio-grid";
+import { SectionHeading } from "@/components/section-heading";
 import { RawHome } from "@/components/raw/raw-pages";
 import { JsonLd } from "@/components/json-ld";
 import { getActiveThread, listCategories, listProjects } from "@/lib/portfolio";
@@ -26,8 +26,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const initialCategory = typeof sp.c === "string" && categories.some((c) => c.slug === sp.c) ? sp.c : null;
   const pdf = [
     PDF_ALL,
-    ...(initialCategory ? [{ label: `Catégorie « ${categories.find((c) => c.slug === initialCategory)?.name} »`, href: `/api/pdf?scope=category&slug=${initialCategory}` }] : []),
-    ...categories.filter((c) => c.count > 0 && c.slug !== initialCategory).map((c) => ({ label: `Catégorie ${c.name}`, href: `/api/pdf?scope=category&slug=${c.slug}` })),
+    ...(initialCategory
+      ? [{ label: `Catégorie « ${categories.find((c) => c.slug === initialCategory)?.name} »`, href: `/api/pdf?scope=category&slug=${initialCategory}` }]
+      : []),
+    ...categories
+      .filter((c) => c.count > 0 && c.slug !== initialCategory)
+      .map((c) => ({ label: `Catégorie ${c.name}`, href: `/api/pdf?scope=category&slug=${c.slug}` })),
   ];
 
   const jsonLd = {
@@ -36,13 +40,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     mainEntity: {
       "@type": "Person",
       name: profile.name,
-      description: profile.headline,
+      description: headlineText(profile),
       url: siteUrl(),
       sameAs: profile.links.map((l) => l.url),
     },
-    hasPart: projects
-      .filter((p) => !p.locked)
-      .map((p) => ({ "@type": "CreativeWork", name: p.name, description: p.tagline ?? undefined, url: p.link })),
+    hasPart: projects.filter((p) => !p.locked).map((p) => ({ "@type": "CreativeWork", name: p.name, description: p.tagline ?? undefined, url: p.link })),
   };
 
   if (view === "raw") {
@@ -55,15 +57,28 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   const commits = await recentCommits(thread?.repos ?? []);
   return (
-    <PageShell view={view} pdf={pdf} active="/">
+    <PageShell view={view} pdf={pdf} active="/" bleed>
       <JsonLd data={jsonLd} />
-      <div className="bento">
-        <ProfileTile profile={profile} projectCount={projects.length} />
-        <NowTile thread={thread} commitCount={commits.reduce((a, g) => a + g.commits.length, 0)} />
-        <MetricsTile projects={projects} />
-        <LinksTile links={profile.links} />
-      </div>
-      <PortfolioGrid projects={projects} categories={categories} initialCategory={initialCategory} />
+      <HomeHero profile={profile} projects={projects} thread={thread} />
+      <section className="px-5 pt-8 sm:px-8">
+        <div className="shell">
+          <SectionHeading
+            id="projets"
+            eyebrow="Projets"
+            title={
+              <>
+                Tout ce qui tourne en ligne, <span className="text-muted">capturé et mis à jour chaque semaine.</span>
+              </>
+            }
+          />
+          <PortfolioGrid projects={projects} categories={categories} initialCategory={initialCategory} />
+        </div>
+      </section>
+      <section className="px-5 pt-20 sm:px-8">
+        <div className="shell">
+          <NowTeaser thread={thread} commits={commits} />
+        </div>
+      </section>
     </PageShell>
   );
 }

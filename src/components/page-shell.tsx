@@ -8,19 +8,22 @@ export function PageShell({
   pdf,
   active,
   children,
+  bleed = false,
 }: {
   view: ViewId;
   pdf: PdfOption[];
   active?: string;
   children: React.ReactNode;
+  /** Page draws its own full-width sections (hero with backdrop). */
+  bleed?: boolean;
 }) {
   if (view === "raw") return <RawShell pdf={pdf}>{children}</RawShell>;
   return (
-    <div className="grain">
+    <>
       <SiteHeader view={view} pdf={pdf} active={active} />
-      <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">{children}</main>
+      <main className={bleed ? "" : "px-5 pt-12 sm:px-8 sm:pt-16"}>{bleed ? children : <div className="shell">{children}</div>}</main>
       <SiteFooter />
-    </div>
+    </>
   );
 }
 

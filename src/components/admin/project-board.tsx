@@ -34,6 +34,7 @@ export type AdminProject = {
   imageOverride: string | null;
   image: string | null;
   screenshots: string[];
+  capture: { desktop: string | null; mobile: string | null };
   size: "sm" | "wide" | "tall" | "lg";
   pinned: boolean;
   hidden: boolean;
@@ -108,7 +109,7 @@ export function ProjectBoard({
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="font-serif text-4xl text-ink">Projets</h1>
+          <h1 className="title text-3xl text-ink">Projets</h1>
           <p className="mt-1 text-sm text-muted">
             {items.length} projets · {hiddenCount} masqués · glisse-dépose pour réordonner (les épinglés passent devant).
           </p>
@@ -125,7 +126,7 @@ export function ProjectBoard({
             type="button"
             disabled={syncing}
             onClick={() => startSync(async () => setSyncState(await syncNow()))}
-            className="flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-bg disabled:opacity-60"
+            className="flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
             <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} /> {syncing ? "Synchronisation…" : "Synchroniser"}
           </button>
@@ -173,7 +174,7 @@ export function ProjectBoard({
         <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm" onClick={() => setEditing(null)}>
           <div className="h-full w-full max-w-xl overflow-y-auto border-l border-line bg-bg p-6 shadow-2xl animate-rise" onClick={(e) => e.stopPropagation()}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-serif text-3xl text-ink">{editingProject.name}</h2>
+              <h2 className="title text-2xl text-ink">{editingProject.name}</h2>
               <button type="button" onClick={() => setEditing(null)} className="grid size-8 place-items-center rounded-full hover:bg-surface" aria-label="Fermer">
                 <X className="size-4" />
               </button>
@@ -236,7 +237,7 @@ function SortableCard({
           {p.watchResolved && <span className="rounded bg-surface-2 px-1">watch:{p.watchResolved}</span>}
         </div>
         <button type="button" onClick={onEdit} className="mt-1 block text-left">
-          <span className="line-clamp-1 font-serif text-xl text-ink">{p.name}</span>
+          <span className="line-clamp-1 title text-base text-ink">{p.name}</span>
           <span className="line-clamp-1 text-xs text-muted">{p.tagline ?? p.url ?? p.repoFullName}</span>
         </button>
       </div>

@@ -8,6 +8,7 @@ import { hashPassword } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
 import { errorMessage } from "@/lib/http";
 import { runSync } from "@/lib/sync";
+import { captureProjects, captureTargets } from "@/lib/capture";
 import { profileSchema, saveDefaultView, saveProfile } from "@/lib/settings";
 import { isView } from "@/lib/views";
 import { addPost, archiveThread, setBrief, startThread } from "@/lib/threads";
@@ -103,8 +104,20 @@ export async function syncNow(): Promise<ActionState> {
     revalidatePath("/", "layout");
     return {
       ok: true,
-      message: `${s.detected} détectés · ${s.created} nouveaux · ${s.updated} mis à jour${s.enriched ? ` · ${s.enriched} enrichis (IA)` : ""}${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}`,
+      message: `${s.detected} détectés · ${s.created} nouveaux · ${s.updated} mis à jour${s.enriched ? ` · ${s.enriched} enrichis (IA)` : ""}${s.captured ? ` · ${s.captured} captures` : ""}${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}`,
     };
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
+}
+
+export async function recapture(id: string): Promise<ActionState> {
+  await requireSession();
+  try {
+    const res = await captureProjects(await captureTargets({ ids: [id], force: true }), 60_000);
+    revalidatePath("/", "layout");
+    if (res.errors.length) return { error: res.errors.map((e) => e.error).join("\n") };
+    return res.captured ? { ok: true, message: "Captures mises à jour." } : { error: "Aucune URL de prod à capturer." };
   } catch (err) {
     return { error: errorMessage(err) };
   }
@@ -242,6 +255,8 @@ export async function saveSettings(_: ActionState, form: FormData): Promise<Acti
     const parsed = profileSchema.safeParse({
       name: String(form.get("name") ?? "").trim(),
       headline: String(form.get("headline") ?? "").trim(),
+      headlineTail: String(form.get("headlineTail") ?? "").trim(),
+      headlineAccent: String(form.get("headlineAccent") ?? "").trim(),
       bio: String(form.get("bio") ?? "").trim(),
       location: String(form.get("location") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),

@@ -20,9 +20,17 @@ export function SettingsForm({ profile, defaultView }: { profile: Profile; defau
           <input name="email" defaultValue={profile.email} className={inputCls} />
         </Field>
       </div>
-      <Field label="Accroche">
+      <Field label="Titre — ligne 1">
         <input name="headline" defaultValue={profile.headline} maxLength={140} className={inputCls} />
       </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Titre — ligne 2 (grisée)">
+          <input name="headlineTail" defaultValue={profile.headlineTail} maxLength={80} className={inputCls} />
+        </Field>
+        <Field label="Mot d'accent (rouge, italique)">
+          <input name="headlineAccent" defaultValue={profile.headlineAccent} maxLength={40} className={inputCls} />
+        </Field>
+      </div>
       <Field label="Bio">
         <textarea name="bio" defaultValue={profile.bio} rows={3} maxLength={600} className={inputCls} />
       </Field>

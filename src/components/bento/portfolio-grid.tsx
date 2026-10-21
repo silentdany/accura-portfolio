@@ -32,14 +32,16 @@ export function PortfolioGrid({
   return (
     <>
       {used.length > 0 && (
-        <div className="no-scrollbar -mx-4 mt-10 mb-4 flex items-center gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="tablist" aria-label="Catégories">
+        <div className="no-scrollbar -mx-5 mb-8 flex overflow-x-auto px-5 sm:mx-0 sm:px-0">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-line bg-ink/[0.035] p-1" role="tablist" aria-label="Catégories">
           <Chip active={!cat} onClick={() => pick(null)} label="Tout" count={projects.length} />
           {used.map((c) => (
             <Chip key={c.slug} active={cat === c.slug} onClick={() => pick(c.slug)} label={`${c.emoji ? `${c.emoji} ` : ""}${c.name}`} count={c.count} />
           ))}
         </div>
+        </div>
       )}
-      <div className={`bento ${used.length ? "" : "mt-4"}`}>
+      <div className="bento">
         {visible.map((p, i) => (
           <ProjectTile key={p.slug} p={p} className="animate-rise" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }} />
         ))}
@@ -58,12 +60,12 @@ function Chip({ active, onClick, label, count }: { active: boolean; onClick: () 
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition ${
-        active ? "border-ink bg-ink text-bg" : "border-line bg-surface/60 text-ink-2 hover:border-line-strong hover:text-ink"
+      className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+        active ? "bg-surface text-ink shadow-sm ring-1 ring-line dark:bg-ink/10" : "text-muted hover:text-ink"
       }`}
     >
       {label}
-      <span className={`font-mono text-[10px] ${active ? "opacity-60" : "text-subtle"}`}>{count}</span>
+      <span className={`font-mono text-[10px] ${active ? "text-primary" : "text-subtle"}`}>{count}</span>
     </button>
   );
 }

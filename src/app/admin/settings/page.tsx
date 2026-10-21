@@ -28,7 +28,7 @@ export default async function AdminSettings() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
       <div className="flex flex-col gap-6">
-        <h1 className="font-serif text-4xl text-ink">Réglages</h1>
+        <h1 className="title text-3xl text-ink">Réglages</h1>
         <Card title="Profil" description="Tuile de présentation, liens façon Linktree, export PDF et API get_profile.">
           <SettingsForm profile={profile} defaultView={defaultView} />
         </Card>

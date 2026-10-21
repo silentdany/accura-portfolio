@@ -25,7 +25,7 @@ export function ThemeToggle({ initial }: { initial: Theme }) {
       onClick={next}
       title={LABEL[theme]}
       aria-label={LABEL[theme]}
-      className="grid size-8 place-items-center rounded-full text-muted transition hover:bg-surface-2 hover:text-ink"
+      className="grid size-8 place-items-center rounded-full text-muted transition hover:bg-ink/[0.05] hover:text-ink"
     >
       <Icon className="size-4" strokeWidth={1.75} />
     </button>

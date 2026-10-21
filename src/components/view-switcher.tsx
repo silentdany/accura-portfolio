@@ -17,7 +17,7 @@ export function ViewSwitcher({ current }: { current: ViewId }) {
     router.refresh();
   }
   return (
-    <div role="radiogroup" aria-label="Affichage" className="flex items-center rounded-full border border-line bg-surface/70 p-0.5 text-xs">
+    <div role="radiogroup" aria-label="Affichage" className="hidden items-center rounded-full border border-line bg-ink/[0.035] p-0.5 text-xs sm:flex">
       {VIEWS.map((v) => (
         <button
           key={v.id}
@@ -27,7 +27,7 @@ export function ViewSwitcher({ current }: { current: ViewId }) {
           title={v.description}
           onClick={() => pick(v.id)}
           className={`rounded-full px-2.5 py-1 font-medium transition ${
-            current === v.id ? "bg-ink text-bg shadow-sm" : "text-muted hover:text-ink"
+            current === v.id ? "bg-surface text-ink shadow-sm ring-1 ring-line dark:bg-ink/10" : "text-muted hover:text-ink"
           }`}
         >
           {v.label}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
-import { deleteProject, saveProject } from "@/app/admin/actions";
+import { Camera, Loader2, Trash2 } from "lucide-react";
+import { deleteProject, recapture, saveProject, type ActionState } from "@/app/admin/actions";
+import { BrowserShot, PhoneShot } from "@/components/shots";
 import type { AdminCategory, AdminProject } from "@/components/admin/project-board";
 import { Feedback, Field, inputCls, Submit, Toggle } from "@/components/admin/ui";
 
@@ -21,6 +22,8 @@ export function ProjectEditor({
   const [nda, setNda] = useState(p.nda);
   const [image, setImage] = useState(p.imageOverride ?? "");
   const [deleting, startDelete] = useTransition();
+  const [capturing, startCapture] = useTransition();
+  const [captureState, setCaptureState] = useState<ActionState>({});
   useEffect(() => {
     if (state.ok) onDone();
   }, [state, onDone]);
@@ -31,8 +34,34 @@ export function ProjectEditor({
     <form action={action} className="flex flex-col gap-6">
       <input type="hidden" name="id" value={p.id} />
 
+      <section className="grid gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="eyebrow">Captures live</h3>
+          <button
+            type="button"
+            disabled={capturing}
+            onClick={() => startCapture(async () => setCaptureState(await recapture(p.id)))}
+            className="flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-xs font-medium text-ink hover:border-line-strong disabled:opacity-60"
+          >
+            {capturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+            {capturing ? "Capture en cours…" : "Recapturer"}
+          </button>
+        </div>
+        {p.capture.desktop || p.capture.mobile ? (
+          <div className="relative pr-[18%]">
+            {p.capture.desktop && <BrowserShot src={p.capture.desktop} domain={p.url?.replace(/^https?:\/\//, "")} imgClassName="aspect-[16/10]" />}
+            {p.capture.mobile && <PhoneShot src={p.capture.mobile} className="absolute right-0 bottom-[-8%] w-[20%]" />}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Pas encore de capture : elles sont prises à la sync (desktop + mobile), ou avec « Recapturer ».</p>
+        )}
+        {(captureState.error || captureState.message) && (
+          <p className={`text-sm whitespace-pre-line ${captureState.error ? "text-danger" : "text-live"}`}>{captureState.error ?? captureState.message}</p>
+        )}
+      </section>
+
       <section className="grid gap-4">
-        <h3 className="text-[11px] uppercase tracking-[0.16em] text-subtle">Contenu (vide = donnée synchronisée)</h3>
+        <h3 className="eyebrow">Contenu (vide = donnée synchronisée)</h3>
         <Field label="Nom affiché" hint={`Sync : ${p.rawName}`}>
           <input name="nameOverride" defaultValue={p.nameOverride ?? ""} placeholder={p.rawName} className={inputCls} />
         </Field>
@@ -50,7 +79,7 @@ export function ProjectEditor({
             <input name="slug" defaultValue={p.slug} pattern="[a-z0-9-]+" className={inputCls} />
           </Field>
         </div>
-        <Field label="Image de la carte" hint="URL libre ou une des captures détectées.">
+        <Field label="Image de la carte" hint="Vide = capture live. Sinon une URL libre ou une image du README.">
           <input name="imageOverride" value={image} onChange={(e) => setImage(e.target.value)} placeholder={p.image ?? "https://"} className={inputCls} />
         </Field>
         {images.length > 0 && (
@@ -71,7 +100,7 @@ export function ProjectEditor({
       </section>
 
       <section className="grid gap-4">
-        <h3 className="text-[11px] uppercase tracking-[0.16em] text-subtle">Affichage</h3>
+        <h3 className="eyebrow">Affichage</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Taille de la carte">
             <select name="size" defaultValue={p.size} className={inputCls}>

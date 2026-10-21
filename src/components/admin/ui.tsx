@@ -21,7 +21,7 @@ export function Toggle({ name, defaultChecked, label }: { name: string; defaultC
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-2">
       <input type="checkbox" name={name} defaultChecked={defaultChecked} className="peer sr-only" />
-      <span className="relative h-5 w-9 rounded-full bg-line-strong transition peer-checked:bg-ink after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:bg-surface after:transition peer-checked:after:translate-x-4" />
+      <span className="relative h-5 w-9 rounded-full bg-line-strong transition peer-checked:bg-primary after:absolute after:top-0.5 after:left-0.5 after:size-4 after:rounded-full after:bg-surface after:transition peer-checked:after:translate-x-4" />
       {label}
     </label>
   );
@@ -31,7 +31,7 @@ export function Submit({ children, variant = "primary" }: { children: React.Reac
   const { pending } = useFormStatus();
   const cls =
     variant === "primary"
-      ? "bg-ink text-bg hover:opacity-90"
+      ? "bg-primary text-primary-foreground hover:opacity-90"
       : variant === "danger"
         ? "border border-danger/40 text-danger hover:bg-danger/10"
         : "border border-line bg-surface text-ink hover:border-line-strong";
@@ -54,7 +54,7 @@ export function Card({ title, description, children, actions }: { title: string;
     <section className="tile p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-serif text-2xl text-ink">{title}</h2>
+          <h2 className="title text-xl text-ink">{title}</h2>
           {description && <p className="mt-1 text-sm text-muted">{description}</p>}
         </div>
         {actions}

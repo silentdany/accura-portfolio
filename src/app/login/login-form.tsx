@@ -48,7 +48,7 @@ export function LoginForm({ mode, next }: { mode: "signin" | "signup"; next: str
           {error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl bg-ink text-sm font-medium text-bg disabled:opacity-60">
+      <button type="submit" disabled={pending} className="btn btn-primary mt-2 h-11 disabled:opacity-60">
         {pending && <Loader2 className="size-4 animate-spin" />}
         {mode === "signin" ? "Se connecter" : "Créer le compte"}
       </button>

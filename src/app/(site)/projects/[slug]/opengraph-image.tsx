@@ -1,4 +1,4 @@
-import { ogCard, OG_SIZE } from "@/lib/og";
+import { captureDataUrl, ogCard, OG_SIZE } from "@/lib/og";
 import { getPublicProjectRow, presentProject } from "@/lib/portfolio";
 import { siteUrl } from "@/lib/env";
 
@@ -15,6 +15,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     title: p?.name ?? "Projet",
     subtitle: p ? (p.locked ? p.ndaContext : p.tagline) : null,
     footer: `${siteUrl().replace(/^https?:\/\//, "")}/projects/${slug}`,
-    image: p && !p.locked ? p.image : null,
+    image: row && p && !p.locked ? await captureDataUrl(row.id) : null,
   });
 }

@@ -5,6 +5,8 @@ import { getProfile } from "@/lib/settings";
 import { getWatchIndex } from "@/lib/watch";
 import { siteUrl } from "@/lib/env";
 import { formatDate, formatNumber, formatPercent } from "@/lib/format";
+import { Logo } from "@/components/logo";
+import { BrowserShot, PhoneShot } from "@/components/shots";
 
 export const metadata: Metadata = { title: "Export PDF", robots: { index: false } };
 
@@ -38,18 +40,21 @@ export default async function PrintPage({ searchParams }: PageProps<"/print">) {
     <div className="force-light min-h-screen bg-bg text-ink">
       <style>{`
         @page { size: A4; margin: 14mm 14mm 16mm; }
-        html, body { background: #f3efe6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .avoid { break-inside: avoid; }
       `}</style>
       <div className="mx-auto max-w-[860px] px-8 py-10 print:p-0">
         <header className="flex items-end justify-between gap-6 border-b border-line pb-6">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-subtle">{single ? "Projet" : scope === "category" ? `Catégorie · ${title}` : "Portfolio"}</p>
-            <h1 className="mt-2 font-serif text-5xl leading-none">
-              {profile.name}
-              <span className="text-clay">.</span>
-            </h1>
-            <p className="mt-3 max-w-md text-sm leading-snug text-ink-2">{profile.headline}</p>
+            <div className="flex items-center gap-2">
+              <Logo size={18} />
+              <span className="eyebrow">{single ? "Projet" : scope === "category" ? `Catégorie · ${title}` : "Portfolio"}</span>
+            </div>
+            <h1 className="mt-3 text-5xl leading-none font-semibold tracking-[-0.045em]">{profile.name}</h1>
+            <p className="mt-3 max-w-md text-sm leading-snug text-ink-2">
+              {profile.headline} <span className="text-muted">{profile.headlineTail}</span>{" "}
+              {profile.headlineAccent && <span className="accent-word">{profile.headlineAccent}</span>}
+            </p>
           </div>
           <div className="text-right font-mono text-[10px] leading-relaxed text-muted">
             {profile.email && <p>{profile.email}</p>}
@@ -67,12 +72,13 @@ export default async function PrintPage({ searchParams }: PageProps<"/print">) {
             {projects.map((p) => (
               <article key={p.slug} className="avoid overflow-hidden rounded-2xl border border-line bg-surface">
                 {p.image && !p.locked && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image} alt="" className="aspect-[16/9] w-full border-b border-line object-cover object-top" />
+                  <div className="border-b border-line bg-surface-2 px-4 pt-4">
+                    <BrowserShot src={p.image} domain={p.domain} eager className="rounded-b-none border-b-0 shadow-none" imgClassName="aspect-[16/9]" />
+                  </div>
                 )}
                 <div className="p-4">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h2 className="font-serif text-2xl leading-tight">{p.name}</h2>
+                    <h2 className="text-xl leading-tight font-semibold tracking-[-0.03em]">{p.name}</h2>
                     {p.locked ? <span className="text-[10px] uppercase tracking-wider text-subtle">NDA</span> : p.domain && <span className="font-mono text-[10px] text-muted">{p.domain}</span>}
                   </div>
                   <p className="mt-1 text-[12px] leading-snug text-ink-2">{p.locked ? p.ndaContext : p.tagline}</p>
@@ -99,15 +105,17 @@ export default async function PrintPage({ searchParams }: PageProps<"/print">) {
 function SingleProject({ p }: { p: PublicProject }) {
   return (
     <main className="mt-8">
-      <h2 className="font-serif text-6xl leading-none">{p.name}</h2>
+      <h2 className="text-6xl leading-none font-semibold tracking-[-0.045em]">{p.name}</h2>
       <p className="mt-3 text-lg text-ink-2">{p.locked ? p.ndaContext : p.tagline}</p>
       {p.locked ? (
         <p className="mt-6 text-sm text-muted">Projet sous NDA — détails disponibles sur demande.</p>
       ) : (
         <>
           {p.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.image} alt="" className="avoid mt-6 max-h-[420px] w-full rounded-2xl border border-line object-cover object-top" />
+            <div className="avoid relative mt-6">
+              <BrowserShot src={p.image} domain={p.domain} eager imgClassName="max-h-[420px]" className={p.capture.mobile ? "mr-[16%]" : ""} />
+              {p.capture.mobile && <PhoneShot src={p.capture.mobile} eager className="absolute right-0 bottom-[-4%] w-[17%]" />}
+            </div>
           )}
           <div className="mt-6 grid grid-cols-[1fr_220px] gap-8">
             <div className="text-[13px] leading-relaxed text-ink-2">

@@ -1,3 +1,4 @@
+import { headlineText } from "@/lib/profile-text";
 import { listProjects } from "@/lib/portfolio";
 import { getProfile } from "@/lib/settings";
 import { getActiveThread } from "@/lib/portfolio";
@@ -12,7 +13,7 @@ export async function GET() {
   const lines = [
     `# ${profile.name} — Portfolio`,
     "",
-    `> ${profile.headline}`,
+    `> ${headlineText(profile)}`,
     "",
     profile.bio,
     "",

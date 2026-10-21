@@ -28,6 +28,7 @@ export default async function AdminProjects() {
       imageOverride: r.imageOverride,
       image: pub.image,
       screenshots: pub.screenshots,
+      capture: pub.capture,
       size: r.size,
       pinned: r.pinned,
       hidden: r.hidden,

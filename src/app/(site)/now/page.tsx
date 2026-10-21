@@ -5,6 +5,8 @@ import { PageShell, PDF_ALL } from "@/components/page-shell";
 import { RawNow } from "@/components/raw/raw-pages";
 import { Timeline } from "@/components/timeline";
 import { CommitGroups } from "@/components/commit-groups";
+import { Backdrop } from "@/components/backdrop";
+import { SectionHeading } from "@/components/section-heading";
 import { getActiveThread } from "@/lib/portfolio";
 import { recentCommits } from "@/lib/now";
 import { resolveView } from "@/lib/view-server";
@@ -34,59 +36,84 @@ export default async function NowPage({ searchParams }: PageProps<"/now">) {
   }
 
   return (
-    <PageShell view={view} pdf={[PDF_ALL]} active="/now">
-      <header className="max-w-3xl animate-rise">
-        <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-subtle">
-          <span className="live-dot" /> Now · un seul projet à la fois
-        </p>
-        <h1 className="mt-4 font-serif text-6xl leading-[0.95] tracking-tight text-ink sm:text-8xl">{thread?.title ?? "Pause."}</h1>
-        {thread?.project && (
-          <Link href={`/projects/${thread.project.slug}`} className="mt-4 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-            Projet : {thread.project.name} <ArrowUpRight className="size-3.5" />
-          </Link>
-        )}
-      </header>
-
-      <section className="tile mt-10 bg-ink p-7 text-bg sm:p-10 dark:bg-surface-2 dark:text-ink">
-        <p className="text-[11px] uppercase tracking-[0.16em] opacity-60">Brief du jour</p>
-        <blockquote className="mt-3 max-w-3xl font-serif text-3xl leading-tight sm:text-4xl">
-          {thread?.brief ? <>&ldquo;{thread.brief}&rdquo;</> : "Pas encore de brief aujourd'hui."}
-        </blockquote>
-        <p className="mt-5 font-mono text-[11px] opacity-55">
-          {thread?.briefAt ? `${formatDate(thread.briefAt)} · ${relativeTime(thread.briefAt)}` : "—"}
-          {thread?.threadUrl && (
-            <>
-              {" · "}
-              <a href={thread.threadUrl} target="_blank" rel="noopener" className="underline underline-offset-4">
-                suivre le thread
-              </a>
-            </>
+    <PageShell view={view} pdf={[PDF_ALL]} active="/now" bleed>
+      <section className="relative isolate overflow-hidden px-5 pt-16 pb-14 sm:px-8 md:pt-24">
+        <Backdrop />
+        <header className="shell relative animate-reveal">
+          <span className="eyebrow">Now · un seul projet à la fois</span>
+          <h1 className="headline mt-7 max-w-4xl">
+            {thread ? (
+              <>
+                {thread.title} <span className="accent-word">en cours.</span>
+              </>
+            ) : (
+              "Pause."
+            )}
+          </h1>
+          {thread?.project && (
+            <Link href={`/projects/${thread.project.slug}`} className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-ink link-underline">
+              Voir le projet {thread.project.name} <ArrowUpRight className="size-3.5" />
+            </Link>
           )}
-        </p>
+        </header>
       </section>
 
-      <section className="mt-16">
-        <div className="mb-5 flex items-baseline justify-between gap-4">
-          <h2 className="font-serif text-3xl text-ink">Preuves d&apos;activité</h2>
-          <p className="font-mono text-xs text-muted">{total} commits · 7 derniers jours</p>
+      <div className="px-5 sm:px-8">
+        <div className="shell">
+          <section className="tile relative overflow-hidden p-7 sm:p-10">
+            <div aria-hidden className="bloom -top-40 -right-32 h-96 w-96" />
+            <span className="eyebrow relative">Brief du jour</span>
+            <blockquote className="relative mt-5 max-w-3xl text-2xl leading-snug font-semibold tracking-[-0.025em] text-ink sm:text-3xl">
+              {thread?.brief ?? "Pas encore de brief aujourd'hui."}
+            </blockquote>
+            <p className="relative mt-6 font-mono text-[11px] text-subtle">
+              {thread?.briefAt ? `${formatDate(thread.briefAt)} · ${relativeTime(thread.briefAt)}` : "—"}
+              {thread?.threadUrl && (
+                <>
+                  {" · "}
+                  <a href={thread.threadUrl} target="_blank" rel="noopener" className="link-underline text-ink">
+                    suivre le thread
+                  </a>
+                </>
+              )}
+            </p>
+          </section>
+
+          <section className="mt-24">
+            <SectionHeading
+              eyebrow="Preuves d'activité"
+              title={
+                <>
+                  {total} commits <span className="text-muted">ces 7 derniers jours.</span>
+                </>
+              }
+            />
+            <CommitGroups groups={commits} />
+          </section>
+
+          {thread && thread.posts.length > 0 && (
+            <section className="mt-24">
+              <SectionHeading
+                eyebrow="Le fil"
+                title={
+                  <>
+                    Le thread, <span className="text-muted">post après post.</span>
+                  </>
+                }
+              />
+              <Timeline thread={thread} />
+            </section>
+          )}
+
+          <p className="mt-20 text-sm text-muted">
+            Quand ce thread se termine, il devient une{" "}
+            <Link href="/stories" className="link-underline text-ink">
+              story
+            </Link>{" "}
+            avec sa timeline complète.
+          </p>
         </div>
-        <CommitGroups groups={commits} />
-      </section>
-
-      {thread && thread.posts.length > 0 && (
-        <section className="mt-16">
-          <h2 className="font-serif text-3xl text-ink">Le fil</h2>
-          <Timeline thread={thread} />
-        </section>
-      )}
-
-      <p className="mt-16 text-sm text-muted">
-        Quand ce thread se termine, il devient une{" "}
-        <Link href="/stories" className="text-ink underline decoration-line-strong underline-offset-4">
-          story
-        </Link>{" "}
-        avec sa timeline complète.
-      </p>
+      </div>
     </PageShell>
   );
 }

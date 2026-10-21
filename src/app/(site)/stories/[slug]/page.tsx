@@ -61,20 +61,20 @@ export default async function StoryPage({ params, searchParams }: PageProps<"/st
       <Link href="/stories" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink">
         <ArrowLeft className="size-4" /> Toutes les stories
       </Link>
-      <header className="mt-8 max-w-3xl animate-rise">
-        <p className="font-mono text-[11px] text-subtle">
-          {formatDate(story.startedAt)} → {formatDate(story.archivedAt)} · {story.posts.length} étapes
-        </p>
-        <h1 className="mt-4 font-serif text-6xl leading-[0.95] tracking-tight text-ink sm:text-8xl">{story.title}</h1>
-        {story.summary && <p className="mt-6 text-xl leading-snug text-ink-2">{story.summary}</p>}
-        <div className="mt-6 flex flex-wrap gap-2">
+      <header className="mt-10 max-w-4xl animate-reveal">
+        <span className="eyebrow">
+          Story · {formatDate(story.startedAt)} → {formatDate(story.archivedAt)}
+        </span>
+        <h1 className="headline mt-7">{story.title}</h1>
+        {story.summary && <p className="mt-6 max-w-2xl text-xl leading-snug text-muted">{story.summary}</p>}
+        <div className="mt-8 flex flex-wrap gap-3">
           {story.project && (
-            <Link href={`/projects/${story.project.slug}`} className="rounded-full bg-ink px-4 py-2 text-sm text-bg">
+            <Link href={`/projects/${story.project.slug}`} className="btn btn-primary">
               Voir le projet {story.project.name}
             </Link>
           )}
           {story.threadUrl && (
-            <a href={story.threadUrl} target="_blank" rel="noopener" className="flex items-center gap-1 rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink">
+            <a href={story.threadUrl} target="_blank" rel="noopener" className="btn btn-outline">
               Thread original <ArrowUpRight className="size-3.5" />
             </a>
           )}
@@ -82,7 +82,7 @@ export default async function StoryPage({ params, searchParams }: PageProps<"/st
       </header>
       {story.cover && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={story.cover} alt="" className="tile mt-12 max-h-[560px] w-full object-cover" />
+        <img src={story.cover} alt="" className="mt-14 max-h-[560px] w-full rounded-2xl border border-line object-cover shadow-[var(--shot-shadow)]" />
       )}
       <section className="mt-14">
         <Timeline thread={story} />

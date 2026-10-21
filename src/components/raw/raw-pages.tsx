@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- the raw view is plain HTML on purpose (no client navigation). */
+import { headlineText } from "@/lib/profile-text";
 import type { PublicProject, PublicThread } from "@/lib/portfolio";
 import type { Profile } from "@/lib/settings";
 import type { CommitGroup } from "@/lib/now";
@@ -13,7 +14,7 @@ export function RawHome({ profile, projects, thread }: { profile: Profile; proje
   return (
     <>
       <h1>{profile.name}</h1>
-      <p>{profile.headline}</p>
+      <p>{headlineText(profile)}</p>
       <p>{profile.bio}</p>
       {profile.email && (
         <p>

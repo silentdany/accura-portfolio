@@ -1,3 +1,4 @@
+import { headlineText } from "@/lib/profile-text";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { cookies } from "next/headers";
@@ -8,7 +9,8 @@ import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const serif = Instrument_Serif({ variable: "--font-serif-display", subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
+/** One serif, italic only, for the single accent word (as on accura.dev). */
+const serif = Instrument_Serif({ variable: "--font-instrument-serif", subsets: ["latin"], weight: "400", style: ["italic"], preload: false });
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await getProfile();
@@ -16,20 +18,20 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(siteUrl()),
     title: { default: title, template: `%s · ${profile.name}` },
-    description: profile.headline,
+    description: headlineText(profile),
     applicationName: "Accura Portfolio",
     authors: [{ name: profile.name, url: "https://accura.dev" }],
     alternates: { canonical: "/", types: { "application/json": "/api/v1/projects" } },
-    openGraph: { type: "website", siteName: "Accura Portfolio", title, description: profile.headline, locale: "fr_FR", url: "/" },
-    twitter: { card: "summary_large_image", title, description: profile.headline },
+    openGraph: { type: "website", siteName: "Accura Portfolio", title, description: headlineText(profile), locale: "fr_FR", url: "/" },
+    twitter: { card: "summary_large_image", title, description: headlineText(profile) },
     robots: { index: true, follow: true },
   };
 }
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3efe6" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#14161c" },
   ],
 };
 

@@ -15,7 +15,7 @@ export default async function AdminNow() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-serif text-4xl text-ink">Now & stories</h1>
+        <h1 className="title text-3xl text-ink">Now & stories</h1>
         <p className="mt-1 text-sm text-muted">Un seul thread actif à la fois. Quand il se termine, archive-le : il devient une page /stories/… autonome.</p>
       </div>
 
@@ -43,7 +43,7 @@ export default async function AdminNow() {
       </Card>
 
       <div>
-        <h2 className="mb-3 font-serif text-2xl text-ink">Stories ({stories.length})</h2>
+        <h2 className="mb-3 title text-xl text-ink">Stories ({stories.length})</h2>
         <div className="flex flex-col gap-3">
           {stories.map((s) => (
             <StoryRow key={s.id} story={presentThread(s)} id={s.id} projects={opts} />

@@ -9,5 +9,10 @@ export const revalidate = 3600;
 
 export default async function Image() {
   const profile = await getProfile();
-  return ogCard({ eyebrow: "accura / portfolio", title: profile.name, subtitle: profile.headline, footer: siteUrl().replace(/^https?:\/\//, "") });
+  return ogCard({
+    eyebrow: profile.available ? profile.availability || "Portfolio" : "Portfolio",
+    title: profile.name,
+    subtitle: [profile.headline, profile.headlineTail, profile.headlineAccent].filter(Boolean).join(" "),
+    footer: siteUrl().replace(/^https?:\/\//, ""),
+  });
 }
