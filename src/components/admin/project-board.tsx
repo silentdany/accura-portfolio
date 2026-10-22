@@ -13,7 +13,7 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Eye, EyeOff, GripVertical, Lock, Maximize2, Pencil, Pin, PinOff, Plus, RefreshCw, Sparkles, X } from "lucide-react";
-import { createManualProject, patchProject, reorderProjects, reenrichNow, syncNow, type ActionState } from "@/app/admin/actions";
+import { createManualProject, patchProject, reorderProjects, reenrichStart, reenrichStep, syncNow, type ActionState } from "@/app/admin/actions";
 import { ProjectEditor } from "@/components/admin/project-editor";
 import { Feedback, Field, inputCls, Submit } from "@/components/admin/ui";
 
@@ -77,7 +77,6 @@ export function ProjectBoard({
     return res;
   }, {});
 
-  // Server data changed (revalidation after an action): adopt it.
   if (initial !== prevInitial) {
     setPrevInitial(initial);
     setItems(initial);
@@ -126,9 +125,45 @@ export function ProjectBoard({
           <button
             type="button"
             disabled={syncing}
-            onClick={() => startSync(async () => setSyncState(await reenrichNow()))}
+            onClick={() =>
+              startSync(async () => {
+                const started = await reenrichStart();
+                if (started.error || !started.queued) {
+                  setSyncState(started);
+                  return;
+                }
+                let done = 0;
+                let failed = 0;
+                const errors: { project: string; error: string }[] = [];
+                const queued = started.queued;
+                for (let i = 0; i < queued; i++) {
+                  const waitFrom = Date.now();
+                  const step = await reenrichStep();
+                  if (step.error && !step.project) {
+                    setSyncState({ error: step.error, errors });
+                    return;
+                  }
+                  if (step.enriched) done++;
+                  else if (step.project) {
+                    failed++;
+                    if (step.error) errors.push({ project: step.project, error: step.error });
+                  }
+                  const left = step.remaining ?? 0;
+                  setSyncState({
+                    ok: true,
+                    message: step.project
+                      ? `${step.project} · ${done}/${queued}${failed ? ` · ${failed} échecs` : ""} · ${left} restants`
+                      : `${done} descriptions régénérées${failed ? ` · ${failed} échecs` : ""}`,
+                    errors,
+                  });
+                  if (left === 0 || !step.project) break;
+                  const elapsed = Date.now() - waitFrom;
+                  if (elapsed < 12_000) await new Promise((r) => setTimeout(r, 12_000 - elapsed));
+                }
+              })
+            }
             className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-line-strong disabled:opacity-60"
-            title="Régénère les descriptions IA même si les sources n'ont pas changé"
+            title="Régénère les descriptions IA, un projet à la fois"
           >
             <Sparkles className={`size-4 ${syncing ? "animate-pulse" : ""}`} /> {syncing ? "Enrichissement…" : "Ré-enrichir (IA)"}
           </button>
@@ -171,7 +206,7 @@ export function ProjectBoard({
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
-            <div className="bento [grid-auto-rows:132px]! md:[grid-auto-rows:148px]!">
+            <div className="bento [grid-auto-rows:132px]! md:[grid-auto-rows:148px]!" >
               {items.map((p) => (
                 <SortableCard key={p.id} p={p} onPatch={patch} onEdit={() => setEditing(p.id)} />
               ))}
