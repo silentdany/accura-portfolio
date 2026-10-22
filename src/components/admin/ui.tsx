@@ -45,8 +45,23 @@ export function Submit({ children, variant = "primary" }: { children: React.Reac
 
 export function Feedback({ state }: { state: ActionState }) {
   if (state.error) return <p className="text-sm whitespace-pre-line text-danger" role="alert">{state.error}</p>;
-  if (state.message) return <p className="text-sm text-live" role="status">{state.message}</p>;
-  return null;
+  if (!state.message && !state.errors?.length) return null;
+  return (
+    <div className="space-y-2" role="status">
+      {state.message ? <p className="text-sm text-live">{state.message}</p> : null}
+      {state.errors && state.errors.length > 0 ? (
+        <ul className="space-y-1 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
+          {state.errors.map((e, i) => (
+            <li key={i} className="break-words">
+              <span className="font-medium">{e.project}</span>
+              <span className="mx-1.5 text-danger/60">·</span>
+              <span className="whitespace-pre-wrap">{e.error}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 export function Card({ title, description, children, actions }: { title: string; description?: string; children: React.ReactNode; actions?: React.ReactNode }) {
