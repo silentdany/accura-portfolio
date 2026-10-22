@@ -13,7 +13,7 @@ import { profileSchema, saveDefaultView, saveProfile } from "@/lib/settings";
 import { isView } from "@/lib/views";
 import { addPost, archiveThread, importXThread, setBrief, startThread } from "@/lib/threads";
 
-export type ActionState = { ok?: boolean; error?: string; message?: string };
+export type ActionState = { ok?: boolean; error?: string; message?: string; errors?: { project: string; error: string }[] };
 
 async function guard<T>(fn: () => Promise<T>, message?: string): Promise<ActionState> {
   await requireSession();
@@ -105,6 +105,7 @@ export async function syncNow(): Promise<ActionState> {
     return {
       ok: true,
       message: `${s.detected} détectés · ${s.created} nouveaux · ${s.updated} mis à jour${s.enriched ? ` · ${s.enriched} enrichis (IA)` : ""}${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}${s.capturing ? " · captures en cours (Réglages pour le résultat)" : ""}`,
+      errors: s.errors,
     };
   } catch (err) {
     return { error: errorMessage(err) };
@@ -120,6 +121,7 @@ export async function reenrichNow(): Promise<ActionState> {
     return {
       ok: true,
       message: `Ré-enrichissement : ${s.enriched} descriptions régénérées${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}${s.capturing ? " · captures en cours" : ""}`,
+      errors: s.errors,
     };
   } catch (err) {
     return { error: errorMessage(err) };
