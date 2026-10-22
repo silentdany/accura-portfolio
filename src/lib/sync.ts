@@ -12,6 +12,23 @@ import { refreshIcon } from "@/lib/icon";
 import { aiEnabled, enrichProject } from "@/lib/ai";
 import { captureProjects, capturesEnabled, captureTargets } from "@/lib/capture";
 
+/** Max 5 AI enrichment calls per minute (free-tier Gateway limit). */
+const aiTimestamps: number[] = [];
+async function rateLimitAi() {
+  const now = Date.now();
+  const windowMs = 60_000;
+  const maxPerWindow = 5;
+  // drop old timestamps
+  while (aiTimestamps.length && now - aiTimestamps[0] >= windowMs) aiTimestamps.shift();
+  if (aiTimestamps.length >= maxPerWindow) {
+    const wait = windowMs - (now - aiTimestamps[0]) + 50;
+    await new Promise((r) => setTimeout(r, wait));
+    return rateLimitAi();
+  }
+  aiTimestamps.push(Date.now());
+}
+
+
 /**
  * Weekly sync (Vercel Cron → /api/cron/sync, or "Synchroniser" in the admin):
  * Vercel projects with a READY production deployment, crossed with the GitHub repos of GITHUB_OWNER.
@@ -155,6 +172,7 @@ async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => numbe
     const hash = shortHash(JSON.stringify([name, description, topics, languages, readme?.slice(0, 4000), home?.text?.slice(0, 1500)]));
     if (forceEnrich || hash !== existing?.aiInputHash) {
       try {
+        await rateLimitAi();
         const res = await enrichProject({
           name,
           url: c.url,
