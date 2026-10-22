@@ -24,17 +24,16 @@ export type Enriched = { tagline: string; description: string };
 const SYSTEM = `Tu écris les fiches d'un portfolio de développeur freelance (Accura).
 Réponds en JSON strict {"tagline": string, "description": string}, en français.
 
-- tagline: une phrase de 4 à 10 mots, concrète, qui dit ce que fait le produit (pas de superlatifs, pas de point final).
+- tagline: une phrase de 6 à 12 mots, concrète, qui dit ce que fait le produit. Pas de superlatifs, pas de point final.
 
-- description: 5 à 8 phrases (ou 2–3 paragraphes courts séparés par une ligne vide). Objectif : un client potentiel doit comprendre clairement ce qui a été fait.
-  Couvre dans l'ordre :
-  1. Le problème ou le besoin de départ
-  2. Ce qui a été construit (fonctionnalités principales, parcours, contraintes métier)
-  3. Pour qui / dans quel contexte
-  4. Éléments techniques ou de livraison notables uniquement s'ils sont dans les données (stack, intégrations, hébergement, etc.)
-  Ton sobre, précis, zéro jargon marketing, zéro superlatif. N'invente aucune fonctionnalité absente des données.
-
-Longueur cible : 400–900 caractères.`;
+- description: OBLIGATOIREMENT entre 500 et 1000 caractères. Écris 2 à 3 paragraphes courts séparés par une ligne vide.
+  Structure obligatoire :
+  1. Le problème ou le besoin de départ (1–2 phrases)
+  2. Ce qui a été construit : fonctionnalités principales, parcours utilisateur, contraintes métier (2–3 phrases)
+  3. Pour qui / dans quel contexte, et ce qui a été livré (1–2 phrases)
+  Utilise TOUT le texte de la homepage et le README s'ils sont présents. Développe, ne résume pas en une phrase.
+  Ton sobre, précis, zéro jargon marketing. N'invente aucune fonctionnalité absente des données fournies.
+  Si les données sont courtes, reste factuel mais écris quand même 2 paragraphes minimum en développant ce qui est là.`;
 
 /** One JSON completion; null when the gateway is off or the answer is not a JSON object. */
 export async function aiJson(system: string, user: string, maxTokens = 900): Promise<Record<string, unknown> | null> {
