@@ -285,14 +285,10 @@ function WatchCard({ s }: { s: WatchStats }) {
         </div>
         {s.series && <Sparkline values={s.series} className="h-12 w-32 text-primary" />}
       </div>
-      <dl className="mt-5 grid grid-cols-3 gap-2 border-t border-line pt-4 text-center">
+      <dl className="mt-5 grid grid-cols-2 gap-2 border-t border-line pt-4 text-center">
         <div>
           <dt className="text-[10px] uppercase tracking-wider text-subtle">Clics Google</dt>
           <dd className="mt-0.5 font-mono text-sm text-ink tabular-nums">{formatNumber(s.clicks)}</dd>
-        </div>
-        <div>
-          <dt className="text-[10px] uppercase tracking-wider text-subtle">Erreurs</dt>
-          <dd className="mt-0.5 font-mono text-sm text-ink tabular-nums">{formatNumber(s.unresolved)}</dd>
         </div>
         <div>
           <dt className="text-[10px] uppercase tracking-wider text-subtle">Uptime</dt>
