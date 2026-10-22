@@ -20,7 +20,8 @@ export const env = {
   aiBaseUrl: () =>
     process.env.AI_GATEWAY_URL?.trim().replace(/\/+$/, "") || (process.env.VERCEL_OIDC_TOKEN ? "https://ai-gateway.vercel.sh/v1" : null),
   aiKey: () => process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim() || null,
-  aiModel: () => process.env.AI_MODEL?.trim() || "anthropic/claude-haiku-5.5",
+  /** Haiku is not on the AI Gateway free tier. Override with AI_MODEL if you bought credits. */
+  aiModel: () => process.env.AI_MODEL?.trim() || "google/gemini-2.5-flash",
   apiToken: () => process.env.PORTFOLIO_API_TOKEN?.trim() || null,
   cronSecret: () => process.env.CRON_SECRET?.trim() || null,
   authSecret: () => process.env.BETTER_AUTH_SECRET ?? "dev-only-insecure-secret-change-me",
