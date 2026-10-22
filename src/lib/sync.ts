@@ -101,7 +101,7 @@ async function collectCandidates(stats: SyncStats): Promise<Candidate[]> {
   return out;
 }
 
-async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => number) {
+async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => number, forceEnrich: boolean) {
   const rawName = c.deployed?.name ?? c.repo?.name ?? "projet";
   const existing = await prisma.project.findFirst({
     where: {
@@ -153,7 +153,7 @@ async function syncOne(c: Candidate, stats: SyncStats, nextPosition: () => numbe
   let ai: { aiTagline?: string; aiDescription?: string; aiInputHash?: string } = {};
   if (aiEnabled()) {
     const hash = shortHash(JSON.stringify([name, description, topics, languages, readme?.slice(0, 4000), home?.text?.slice(0, 1500)]));
-    if (hash !== existing?.aiInputHash) {
+    if (forceEnrich || hash !== existing?.aiInputHash) {
       try {
         const res = await enrichProject({
           name,
@@ -206,10 +206,11 @@ export class SyncBusy extends Error {}
 /**
  * One sync at a time. With `capturesInBackground`, it returns once the projects are synced (~15 s)
  * and the screenshots carry on after the response (`after()`), within the same deadline.
+ * `forceEnrich` re-runs the AI description even when the source hash is unchanged.
  */
 export async function runSync(
   trigger: "cron" | "admin" | "api",
-  opts: { capturesInBackground?: boolean } = {},
+  opts: { capturesInBackground?: boolean; forceEnrich?: boolean } = {},
 ): Promise<SyncStats & { id: string; capturing: boolean }> {
   await prisma.syncRun.updateMany({
     where: { finishedAt: null, startedAt: { lt: new Date(Date.now() - STALE_MS) } },
@@ -260,7 +261,7 @@ export async function runSync(
     let position = (max._max.position ?? 0) + 1;
     await pool(candidates, 4, async (c) => {
       try {
-        await syncOne(c, stats, () => position++);
+        await syncOne(c, stats, () => position++, Boolean(opts.forceEnrich));
       } catch (err) {
         stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
       }
