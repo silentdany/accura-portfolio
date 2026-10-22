@@ -28,7 +28,7 @@ async function guard<T>(fn: () => Promise<T>, message?: string): Promise<ActionS
 
 const empty = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-// ─── Projects ───────────────────────────────────────────────────────────────
+// ─── Projects ──────────────────────────────────────────────────────────────
 
 export async function reorderProjects(ids: string[]): Promise<ActionState> {
   return guard(() => prisma.$transaction(ids.map((id, position) => prisma.project.update({ where: { id }, data: { position } }))));
@@ -111,6 +111,21 @@ export async function syncNow(): Promise<ActionState> {
   }
 }
 
+/** Force AI re-enrichment even when source data hash is unchanged. */
+export async function reenrichNow(): Promise<ActionState> {
+  await requireSession();
+  try {
+    const s = await runSync("admin", { capturesInBackground: true, forceEnrich: true });
+    revalidatePath("/", "layout");
+    return {
+      ok: true,
+      message: `Ré-enrichissement : ${s.enriched} descriptions régénérées${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}${s.capturing ? " · captures en cours" : ""}`,
+    };
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
+}
+
 export async function recapture(id: string): Promise<ActionState> {
   await requireSession();
   try {
@@ -154,7 +169,7 @@ export async function deleteCategory(id: string): Promise<ActionState> {
   return guard(() => prisma.category.delete({ where: { id } }));
 }
 
-// ─── Now / Stories ──────────────────────────────────────────────────────────
+// ─── Now / Stories ────────────────────────────────────────────────────────────
 
 const repoList = (v: FormDataEntryValue | null) =>
   String(v ?? "")
@@ -257,7 +272,7 @@ export async function deleteThread(id: string): Promise<ActionState> {
   return guard(() => prisma.thread.delete({ where: { id } }));
 }
 
-// ─── Settings ───────────────────────────────────────────────────────────────
+// ─── Settings ──────────────────────────────────────────────────────────────
 
 export async function saveSettings(_: ActionState, form: FormData): Promise<ActionState> {
   return guard(async () => {

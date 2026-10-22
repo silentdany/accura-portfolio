@@ -12,8 +12,8 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Eye, EyeOff, GripVertical, Lock, Maximize2, Pencil, Pin, PinOff, Plus, RefreshCw, X } from "lucide-react";
-import { createManualProject, patchProject, reorderProjects, syncNow, type ActionState } from "@/app/admin/actions";
+import { Eye, EyeOff, GripVertical, Lock, Maximize2, Pencil, Pin, PinOff, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import { createManualProject, patchProject, reorderProjects, reenrichNow, syncNow, type ActionState } from "@/app/admin/actions";
 import { ProjectEditor } from "@/components/admin/project-editor";
 import { Feedback, Field, inputCls, Submit } from "@/components/admin/ui";
 
@@ -126,6 +126,15 @@ export function ProjectBoard({
           <button
             type="button"
             disabled={syncing}
+            onClick={() => startSync(async () => setSyncState(await reenrichNow()))}
+            className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-line-strong disabled:opacity-60"
+            title="Régénère les descriptions IA même si les sources n'ont pas changé"
+          >
+            <Sparkles className={`size-4 ${syncing ? "animate-pulse" : ""}`} /> {syncing ? "Enrichissement…" : "Ré-enrichir (IA)"}
+          </button>
+          <button
+            type="button"
+            disabled={syncing}
             onClick={() => startSync(async () => setSyncState(await syncNow()))}
             className="flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
@@ -157,7 +166,7 @@ export function ProjectBoard({
 
       {items.length === 0 ? (
         <div className="tile p-10 text-center text-muted">
-          Aucun projet pour l&apos;instant. Configure <code>VERCEL_TOKEN</code> / <code>GITHUB_TOKEN</code> puis lance une synchronisation.
+          Aucun projet pour l'instant. Configure <code>VERCEL_TOKEN</code> / <code>GITHUB_TOKEN</code> puis lance une synchronisation.
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
