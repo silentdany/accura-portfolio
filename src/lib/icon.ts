@@ -6,9 +6,11 @@ import { prisma } from "@/lib/prisma";
  * (Capture kind "icon"), so cards never depend on a third-party favicon service.
  * Preference: apple-touch-icon, then the largest declared icon (SVG counts as large),
  * then the conventional /apple-touch-icon.png and /favicon.ico.
+ * A raster smaller than 96px is a favicon: scaled up on the project page it just pixelates, so it is skipped.
  */
 
 const MAX_BYTES = 300_000;
+const MIN_EDGE = 96;
 
 function attr(tag: string, name: string): string | null {
   const m = new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, "i").exec(tag);
@@ -32,7 +34,7 @@ export function iconCandidates(html: string, pageUrl: string): string[] {
     const href = attr(tag, "href");
     if (!href || !/(^|\s)(icon|shortcut icon|apple-touch-icon(-precomposed)?)(\s|$)/i.test(rel) || /mask-icon/i.test(rel)) continue;
     try {
-      found.push({ url: new URL(href.replace(/&amp;/g, "&"), pageUrl).toString(), score: rank(rel, attr(tag, "sizes"), href, attr(tag, "type")) });
+      found.push({ url: new URL(href.replace(/&/g, "&"), pageUrl).toString(), score: rank(rel, attr(tag, "sizes"), href, attr(tag, "type")) });
     } catch {
       /* invalid href */
     }
@@ -54,8 +56,40 @@ function sniff(buf: Buffer, header: string | null): string | null {
   return ct.startsWith("image/") && ct !== "image/svg+xml" ? ct : null;
 }
 
-/** First candidate that answers with a real image. */
-export async function fetchIcon(candidates: string[]): Promise<{ url: string; data: Buffer; mime: string } | null> {
+/** Longest side in pixels, or null when the format doesn't say (SVG, unknown). */
+function longestEdge(buf: Buffer, mime: string): number | null {
+  if (mime === "image/svg+xml") return null;
+  if (mime === "image/png" && buf.length >= 24) return Math.max(buf.readUInt32BE(16), buf.readUInt32BE(20));
+  if (mime === "image/gif" && buf.length >= 10) return Math.max(buf.readUInt16LE(6), buf.readUInt16LE(8));
+  if (mime === "image/x-icon" && buf.length >= 6) {
+    const count = buf.readUInt16LE(4);
+    let max = 0;
+    for (let n = 0; n < count && 6 + n * 16 < buf.length; n++) max = Math.max(max, buf[6 + n * 16] || 256);
+    return max || null;
+  }
+  if (mime === "image/jpeg") {
+    let i = 2;
+    while (i + 9 < buf.length) {
+      if (buf[i] !== 0xff) break;
+      const marker = buf[i + 1];
+      if (marker === 0xd8 || marker === 0xd9) {
+        i += 2;
+        continue;
+      }
+      const len = buf.readUInt16BE(i + 2);
+      const sof = (marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7) || (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf);
+      if (sof) return Math.max(buf.readUInt16BE(i + 5), buf.readUInt16BE(i + 7));
+      i += 2 + len;
+    }
+  }
+  return null;
+}
+
+export type FetchedIcon = { url: string; data: Buffer; mime: string } | "small";
+
+/** First candidate that is a real image large enough to sit next to a title. "small" when every hit was a favicon. */
+export async function fetchIcon(candidates: string[]): Promise<FetchedIcon | null> {
+  let small = false;
   for (const url of candidates.slice(0, 6)) {
     try {
       const res = await fetch(url, {
@@ -68,17 +102,27 @@ export async function fetchIcon(candidates: string[]): Promise<{ url: string; da
       const data = Buffer.from(await res.arrayBuffer());
       if (data.length < 64 || data.length > MAX_BYTES) continue;
       const mime = sniff(data, res.headers.get("content-type"));
-      if (mime) return { url, data, mime };
+      if (!mime) continue;
+      const edge = longestEdge(data, mime);
+      if (edge !== null && edge < MIN_EDGE) {
+        small = true;
+        continue;
+      }
+      return { url, data, mime };
     } catch {
       /* try the next one */
     }
   }
-  return null;
+  return small ? "small" : null;
 }
 
-/** Fetch and store (only when it changed). Returns true when an icon is stored. */
+/** Fetch and store (only when it changed). A too-small favicon replaces nothing and deletes the pixelated one. */
 export async function refreshIcon(projectId: string, candidates: string[]): Promise<boolean> {
   const icon = await fetchIcon(candidates);
+  if (icon === "small") {
+    await prisma.capture.deleteMany({ where: { projectId, kind: "icon" } });
+    return false;
+  }
   if (!icon) return false;
   const hash = createHash("sha1").update(icon.data).digest("hex").slice(0, 12);
   const cur = await prisma.capture.findUnique({ where: { projectId_kind: { projectId, kind: "icon" } }, select: { hash: true } });
