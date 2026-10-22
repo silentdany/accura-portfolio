@@ -12,6 +12,9 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 /** One serif, italic only, for the single accent word (as on accura.dev). */
 const serif = Instrument_Serif({ variable: "--font-instrument-serif", subsets: ["latin"], weight: "400", style: ["italic"], preload: false });
 
+/** One region. A warm function per continent was each holding a DB pool. */
+export const preferredRegion = "cdg1";
+
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await getProfile();
   const title = `${profile.name} — Portfolio`;
