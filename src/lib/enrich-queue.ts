@@ -14,15 +14,38 @@ export type EnrichStep = {
   enriched: boolean;
   remaining: number;
   error?: string;
+  /** Gateway rate limit or a timeout. The project stays queued; the client should wait and call again. */
+  rateLimited?: boolean;
+  chars?: number;
 };
 
 function remaining() {
   return prisma.project.count({ where: { manual: false, aiInputHash: ENRICH_QUEUED } });
 }
 
+function retryable(message: string) {
+  return /\b429\b|rate limit|too many requests|timeout|timed out|aborted|AbortError/i.test(message);
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    p.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
 /** Mark every synced project so the next steps regenerate its description. Returns how many. */
 export async function queueForceEnrich(): Promise<number> {
-  if (!aiEnabled()) throw new Error("IA non configurée (AI Gateway).");
+  if (!aiEnabled()) throw new Error("IA non configurée (AI Gateway). Active le Gateway sur le projet Vercel, ou AI_GATEWAY_URL + AI_GATEWAY_API_KEY.");
   const res = await prisma.project.updateMany({
     where: { manual: false },
     data: { aiInputHash: ENRICH_QUEUED },
@@ -31,13 +54,13 @@ export async function queueForceEnrich(): Promise<number> {
 }
 
 /**
- * Enrich exactly one queued project (readme + homepage included).
- * One call stays well under the function timeout. The admin loops, with a pause between calls.
+ * Enrich exactly one queued project.
+ * Stays well under the function timeout: homepage/readme are capped, the model call is one shot.
+ * A 429 puts the project back in the queue instead of burning it.
  */
 export async function enrichNextQueued(): Promise<EnrichStep> {
   if (!aiEnabled()) throw new Error("IA non configurée (AI Gateway).");
 
-  // A previous invocation killed mid-call leaves the row on "working". Put it back.
   await prisma.project.updateMany({
     where: { manual: false, aiInputHash: ENRICH_WORKING },
     data: { aiInputHash: ENRICH_QUEUED },
@@ -62,12 +85,14 @@ export async function enrichNextQueued(): Promise<EnrichStep> {
     where: { id: next.id, aiInputHash: ENRICH_QUEUED },
     data: { aiInputHash: ENRICH_WORKING },
   });
-  if (claim.count === 0) return { project: next.name, enriched: false, remaining: await remaining() };
+  if (claim.count === 0) return { project: next.name, enriched: false, remaining: await remaining(), rateLimited: true };
+
+  const release = () => prisma.project.update({ where: { id: next.id }, data: { aiInputHash: ENRICH_QUEUED } });
 
   try {
     const [home, readme] = await Promise.all([
-      next.url ? fetchHomepageMeta(next.url).catch(() => null) : Promise.resolve(null),
-      next.repoFullName ? getReadme(next.repoFullName).catch(() => null) : Promise.resolve(null),
+      next.url ? withTimeout(fetchHomepageMeta(next.url), 7_000) : Promise.resolve(null),
+      next.repoFullName ? withTimeout(getReadme(next.repoFullName), 8_000) : Promise.resolve(null),
     ]);
     const res = await enrichProject({
       name: next.name,
@@ -80,7 +105,7 @@ export async function enrichNextQueued(): Promise<EnrichStep> {
     });
     if (!res) {
       await prisma.project.update({ where: { id: next.id }, data: { aiInputHash: "empty" } });
-      return { project: next.name, enriched: false, remaining: await remaining(), error: "Réponse IA vide" };
+      return { project: next.name, enriched: false, remaining: await remaining(), error: "Réponse IA vide ou trop courte" };
     }
     const hash = shortHash(
       JSON.stringify([
@@ -96,9 +121,14 @@ export async function enrichNextQueued(): Promise<EnrichStep> {
       where: { id: next.id },
       data: { aiTagline: res.tagline, aiDescription: res.description, aiInputHash: hash },
     });
-    return { project: next.name, enriched: true, remaining: await remaining() };
+    return { project: next.name, enriched: true, remaining: await remaining(), chars: res.description.length };
   } catch (err) {
+    const message = errorMessage(err);
+    if (retryable(message)) {
+      await release();
+      return { project: next.name, enriched: false, remaining: await remaining(), rateLimited: true, error: message };
+    }
     await prisma.project.update({ where: { id: next.id }, data: { aiInputHash: "error" } });
-    return { project: next.name, enriched: false, remaining: await remaining(), error: errorMessage(err) };
+    return { project: next.name, enriched: false, remaining: await remaining(), error: message };
   }
 }
