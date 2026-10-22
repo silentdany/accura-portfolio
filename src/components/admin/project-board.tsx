@@ -13,7 +13,7 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Eye, EyeOff, GripVertical, Lock, Maximize2, Pencil, Pin, PinOff, Plus, RefreshCw, Sparkles, X } from "lucide-react";
-import { createManualProject, patchProject, reorderProjects, reenrichStart, reenrichStep, syncNow, type ActionState } from "@/app/admin/actions";
+import { createManualProject, patchProject, reorderProjects, syncNow, type ActionState } from "@/app/admin/actions";
 import { ProjectEditor } from "@/components/admin/project-editor";
 import { Feedback, Field, inputCls, Submit } from "@/components/admin/ui";
 
@@ -55,6 +55,29 @@ export type AdminCategory = { id: string; name: string; emoji: string | null };
 const SIZES: AdminProject["size"][] = ["sm", "wide", "tall", "lg"];
 const SIZE_LABEL = { sm: "1×1", wide: "2×1", tall: "1×2", lg: "2×2" };
 
+type EnrichPayload = ActionState & {
+  queued?: number;
+  project?: string | null;
+  enriched?: boolean;
+  remaining?: number;
+  rateLimited?: boolean;
+  chars?: number;
+};
+
+async function enrichRequest(body: { action: "start" | "step" }): Promise<EnrichPayload> {
+  const res = await fetch("/api/admin/enrich", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => null)) as EnrichPayload | null;
+  if (!data) return { error: `Réponse vide (HTTP ${res.status})` };
+  if (!res.ok && !data.error) return { ...data, error: `HTTP ${res.status}` };
+  return data;
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export function ProjectBoard({
   initial,
   categories,
@@ -70,6 +93,7 @@ export function ProjectBoard({
   const [creating, setCreating] = useState(false);
   const [syncState, setSyncState] = useState<ActionState>({});
   const [syncing, startSync] = useTransition();
+  const [enriching, setEnriching] = useState(false);
   const [, startSave] = useTransition();
   const [createState, createAction] = useActionState(async (prev: ActionState, form: FormData) => {
     const res = await createManualProject(prev, form);
@@ -102,8 +126,62 @@ export function ProjectBoard({
     startSave(() => void patchProject(id, p));
   }
 
+  async function runEnrich() {
+    setEnriching(true);
+    const errors: { project: string; error: string }[] = [];
+    try {
+      setSyncState({ ok: true, message: "Mise en file…" });
+      const started = await enrichRequest({ action: "start" });
+      if (started.error || !started.queued) {
+        setSyncState(started.error ? { error: started.error } : { ok: true, message: started.message ?? "Rien à enrichir." });
+        return;
+      }
+      const queued = started.queued;
+      let done = 0;
+      let failed = 0;
+      for (let guard = 0; guard < queued * 3 + 4; guard++) {
+        const startedAt = Date.now();
+        const step = await enrichRequest({ action: "step" });
+        if (step.error && !step.project) {
+          setSyncState({ error: step.error, errors });
+          return;
+        }
+        if (step.rateLimited) {
+          setSyncState({
+            ok: true,
+            message: `Limite du Gateway sur ${step.project ?? "le modèle"}, pause 15s · ${done}/${queued}`,
+            errors,
+          });
+          await wait(15_000);
+          continue;
+        }
+        if (step.enriched) done++;
+        else if (step.project) {
+          failed++;
+          if (step.error) errors.push({ project: step.project, error: step.error });
+        }
+        const left = step.remaining ?? 0;
+        setSyncState({
+          ok: failed === 0,
+          message: step.project
+            ? `${step.project}${step.chars ? ` (${step.chars} car.)` : ""} · ${done}/${queued} ok${failed ? ` · ${failed} échecs` : ""} · ${left} restants`
+            : `${done}/${queued} descriptions régénérées${failed ? ` · ${failed} échecs` : ""}`,
+          errors,
+        });
+        if (!step.project || left === 0) break;
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 13_000) await wait(13_000 - elapsed);
+      }
+    } catch (err) {
+      setSyncState({ error: err instanceof Error ? err.message : "Enrichissement interrompu", errors });
+    } finally {
+      setEnriching(false);
+    }
+  }
+
   const editingProject = useMemo(() => items.find((i) => i.id === editing) ?? null, [items, editing]);
   const hiddenCount = items.filter((i) => i.hidden).length;
+  const busy = syncing || enriching;
 
   return (
     <div>
@@ -124,52 +202,16 @@ export function ProjectBoard({
           </button>
           <button
             type="button"
-            disabled={syncing}
-            onClick={() =>
-              startSync(async () => {
-                const started = await reenrichStart();
-                if (started.error || !started.queued) {
-                  setSyncState(started);
-                  return;
-                }
-                let done = 0;
-                let failed = 0;
-                const errors: { project: string; error: string }[] = [];
-                const queued = started.queued;
-                for (let i = 0; i < queued; i++) {
-                  const waitFrom = Date.now();
-                  const step = await reenrichStep();
-                  if (step.error && !step.project) {
-                    setSyncState({ error: step.error, errors });
-                    return;
-                  }
-                  if (step.enriched) done++;
-                  else if (step.project) {
-                    failed++;
-                    if (step.error) errors.push({ project: step.project, error: step.error });
-                  }
-                  const left = step.remaining ?? 0;
-                  setSyncState({
-                    ok: true,
-                    message: step.project
-                      ? `${step.project} · ${done}/${queued}${failed ? ` · ${failed} échecs` : ""} · ${left} restants`
-                      : `${done} descriptions régénérées${failed ? ` · ${failed} échecs` : ""}`,
-                    errors,
-                  });
-                  if (left === 0 || !step.project) break;
-                  const elapsed = Date.now() - waitFrom;
-                  if (elapsed < 12_000) await new Promise((r) => setTimeout(r, 12_000 - elapsed));
-                }
-              })
-            }
+            disabled={busy}
+            onClick={() => void runEnrich()}
             className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium text-ink hover:border-line-strong disabled:opacity-60"
-            title="Régénère les descriptions IA, un projet à la fois"
+            title="Régénère les descriptions IA, un projet à la fois, sans quitter la page"
           >
-            <Sparkles className={`size-4 ${syncing ? "animate-pulse" : ""}`} /> {syncing ? "Enrichissement…" : "Ré-enrichir (IA)"}
+            <Sparkles className={`size-4 ${enriching ? "animate-pulse" : ""}`} /> {enriching ? "Enrichissement…" : "Ré-enrichir (IA)"}
           </button>
           <button
             type="button"
-            disabled={syncing}
+            disabled={busy}
             onClick={() => startSync(async () => setSyncState(await syncNow()))}
             className="flex h-9 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
