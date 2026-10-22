@@ -35,16 +35,27 @@ Réponds en JSON strict {"tagline": string, "description": string}, en français
   Ton sobre, précis, zéro jargon marketing. N'invente aucune fonctionnalité absente des données fournies.
   Si les données sont courtes, reste factuel mais écris quand même 2 paragraphes minimum en développant ce qui est là.`;
 
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, init);
+    if (res.status !== 429 || attempt === maxRetries) return res;
+    const retryAfter = res.headers.get("retry-after");
+    const wait = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.min(15000 * (attempt + 1), 45000);
+    await new Promise((r) => setTimeout(r, wait + 200));
+  }
+  throw new Error("unreachable");
+}
+
 /** One JSON completion; null when the gateway is off or the answer is not a JSON object. */
 export async function aiJson(system: string, user: string, maxTokens = 900): Promise<Record<string, unknown> | null> {
   const base = env.aiBaseUrl();
   const key = env.aiKey();
   if (!base || !key) return null;
-  const res = await fetch(`${base}/chat/completions`, {
+  const res = await fetchWithRetry(`${base}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     cache: "no-store",
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(60000),
     body: JSON.stringify({
       model: env.aiModel(),
       temperature: 0.3,
