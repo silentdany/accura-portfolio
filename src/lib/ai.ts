@@ -22,60 +22,61 @@ export type EnrichInput = {
 export type Enriched = { tagline: string; description: string };
 
 const SYSTEM = `Tu écris les fiches d'un portfolio de développeur freelance (Accura).
-Réponds en JSON strict {"tagline": string, "description": string}, en français.
+Réponds UNIQUEMENT avec un objet JSON {"tagline": string, "description": string}, en français. Pas de markdown.
 
-- tagline: une phrase de 6 à 12 mots, concrète, qui dit ce que fait le produit. Pas de superlatifs, pas de point final.
+- tagline: 6 à 12 mots, concret, ce que fait le produit. Pas de superlatif, pas de point final.
 
-- description: OBLIGATOIREMENT entre 500 et 1000 caractères. Écris 2 à 3 paragraphes courts séparés par une ligne vide.
-  Structure obligatoire :
-  1. Le problème ou le besoin de départ (1–2 phrases)
-  2. Ce qui a été construit : fonctionnalités principales, parcours utilisateur, contraintes métier (2–3 phrases)
-  3. Pour qui / dans quel contexte, et ce qui a été livré (1–2 phrases)
-  Utilise TOUT le texte de la homepage et le README s'ils sont présents. Développe, ne résume pas en une phrase.
-  Ton sobre, précis, zéro jargon marketing. N'invente aucune fonctionnalité absente des données fournies.
-  Si les données sont courtes, reste factuel mais écris quand même 2 paragraphes minimum en développant ce qui est là.`;
+- description: 2 ou 3 paragraphes courts séparés par une ligne vide, vise 500 à 900 caractères.
+  1. Le besoin de départ
+  2. Ce qui a été construit (fonctions, parcours, contraintes)
+  3. Pour qui, et ce qui a été livré
+  Utilise la homepage et le README s'ils sont là. N'invente aucune fonctionnalité absente des données.
+  Ton sobre. Si les données sont courtes, reste factuel et développe ce qui est là, sans inventer.`;
 
-async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, init);
-    if (res.status !== 429 || attempt === maxRetries) return res;
-    const retryAfter = res.headers.get("retry-after");
-    const wait = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.min(15000 * (attempt + 1), 45000);
-    await new Promise((r) => setTimeout(r, wait + 200));
+function parseObject(content: string): Record<string, unknown> | null {
+  const cleaned = content.replace(/```(?:json)?/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const parsed: unknown = JSON.parse(cleaned.slice(start, end + 1));
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
-  throw new Error("unreachable");
 }
 
-/** One JSON completion; null when the gateway is off or the answer is not a JSON object. */
-export async function aiJson(system: string, user: string, maxTokens = 900): Promise<Record<string, unknown> | null> {
+/** One completion. No response_format (free-tier models reject it) and no retry loop (the caller paces). */
+export async function aiJson(system: string, user: string, maxTokens = 1400): Promise<Record<string, unknown> | null> {
   const base = env.aiBaseUrl();
   const key = env.aiKey();
   if (!base || !key) return null;
-  const res = await fetchWithRetry(`${base}/chat/completions`, {
+  const model = env.aiModel();
+  const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     cache: "no-store",
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(25_000),
     body: JSON.stringify({
-      model: env.aiModel(),
-      temperature: 0.3,
+      model,
+      temperature: 0.4,
       max_tokens: maxTokens,
-      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
     }),
   });
-  if (!res.ok) throw new Error(`AI gateway ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = data.choices?.[0]?.message?.content ?? "";
-  try {
-    const parsed: unknown = JSON.parse(content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1));
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
-  } catch {
-    return null;
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 240);
+    const hint =
+      res.status === 403 || res.status === 402
+        ? " Modèle hors free tier : retire AI_MODEL ou mets AI_MODEL=google/gemini-2.5-flash."
+        : "";
+    throw new Error(`AI ${model} ${res.status}: ${body}${hint}`);
   }
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  return parseObject(data.choices?.[0]?.message?.content ?? "");
 }
 
 export async function enrichProject(input: EnrichInput): Promise<Enriched | null> {
@@ -84,7 +85,10 @@ export async function enrichProject(input: EnrichInput): Promise<Enriched | null
     readme: input.readme?.slice(0, 4000) ?? null,
     homepageText: input.homepageText?.slice(0, 1500) ?? null,
   });
-  const parsed = await aiJson(SYSTEM, user, 900);
+  const parsed = await aiJson(SYSTEM, user, 1400);
   if (typeof parsed?.tagline !== "string" || typeof parsed.description !== "string") return null;
-  return { tagline: parsed.tagline.trim().replace(/\.$/, ""), description: parsed.description.trim() };
+  const tagline = parsed.tagline.trim().replace(/\.$/, "");
+  const description = parsed.description.trim();
+  if (tagline.length < 3 || description.length < 40) return null;
+  return { tagline, description };
 }
