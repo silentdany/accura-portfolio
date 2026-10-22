@@ -1,6 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Lock, Pin } from "lucide-react";
 import type { PublicProject } from "@/lib/portfolio";
@@ -9,12 +10,27 @@ import { StatusDot } from "@/components/status-dot";
 import { Sparkline } from "@/components/sparkline";
 import { BrowserShot, EmptyShot, PhoneShot } from "@/components/shots";
 
-/** The site's own icon when the sync found one, otherwise a monogram (never a broken image). */
+function Monogram({ name, size }: { name: string; size: string }) {
+  return <span className={`grid ${size} shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-xs font-semibold text-ink`}>{name.slice(0, 1)}</span>;
+}
+
+/** The site's own icon when it is large enough. A 32px favicon scaled to the title just pixelates. */
 export function ProjectIcon({ p, size = "size-8" }: { p: Pick<PublicProject, "name" | "icon">; size?: string }) {
-  return p.icon ? (
-    <img src={p.icon} alt="" loading="lazy" decoding="async" className={`${size} shrink-0 rounded-lg border border-line bg-surface object-contain p-1`} />
-  ) : (
-    <span className={`grid ${size} shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-xs font-semibold text-ink`}>{p.name.slice(0, 1)}</span>
+  const [hide, setHide] = useState(false);
+  if (!p.icon || hide) return <Monogram name={p.name} size={size} />;
+  return (
+    <img
+      src={p.icon}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onLoad={(e) => {
+        const w = e.currentTarget.naturalWidth;
+        if (w > 0 && w < 96) setHide(true);
+      }}
+      onError={() => setHide(true)}
+      className={`${size} shrink-0 rounded-lg border border-line bg-surface object-contain p-1`}
+    />
   );
 }
 
