@@ -64,6 +64,11 @@ function captureUrl(p: ProjectRow, kind: "desktop" | "mobile" | "icon", base: st
   return c ? `${base}/api/captures/${p.slug}/${kind}?v=${c.hash}` : null;
 }
 
+/** Favicons, touch icons and badges are not screenshots. Stretched, they pixelate. */
+function isShot(url: string): boolean {
+  return !/favicon|apple-touch-icon|apple-icon|icon-\d{1,3}|[\/-]icon\.(png|ico|svg|webp)|\/icons\/|shields\.io|badgen\.|badge\.|logo-mark/i.test(url);
+}
+
 /** `absolute`: prefix local URLs with the site URL (REST/MCP consumers). */
 export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?: WatchIndex | null; absolute?: boolean } = {}): PublicProject {
   const locked = p.nda && !opts.unlocked;
@@ -72,8 +77,9 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
   const description = p.descriptionOverride || p.aiDescription || p.description || null;
   const tagline = p.taglineOverride || p.aiTagline || firstSentence(p.description);
   const capture = { desktop: captureUrl(p, "desktop", origin), mobile: captureUrl(p, "mobile", origin) };
-  const image = p.imageOverride || capture.desktop || p.screenshots[0] || p.ogImage || null;
-  const screenshots = [...new Set([p.imageOverride, ...p.screenshots, p.ogImage].filter((x): x is string => Boolean(x)))];
+  const shots = [...p.screenshots, p.ogImage].filter((x): x is string => Boolean(x) && isShot(x));
+  const screenshots = [...new Set([...(p.imageOverride ? [p.imageOverride] : []), ...shots])];
+  const image = p.imageOverride || capture.desktop || shots[0] || null;
   const base = {
     slug: p.slug,
     name: p.nameOverride || p.name,
@@ -168,7 +174,7 @@ export async function listCategories(): Promise<(PublicCategory & { count: numbe
   return cats.map((c) => ({ slug: c.slug, name: c.name, emoji: c.emoji, count: c._count.projects }));
 }
 
-// ─── Now / Stories ──────────────────────────────────────────────────────────
+// ─── Now / Stories ────────────────────────────────────────────────────
 
 type ThreadRow = Thread & { posts: ThreadPost[]; project: Project | null };
 
