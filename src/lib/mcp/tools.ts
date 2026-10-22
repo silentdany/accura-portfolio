@@ -3,7 +3,18 @@ import { getProfile } from "@/lib/settings";
 import { getActiveThread, getProjectRow, getStory, listCategories, listProjects, listStories, presentProject } from "@/lib/portfolio";
 import { getWatchIndex } from "@/lib/watch";
 import { recentCommits } from "@/lib/now";
-import { addPost, archiveInput, archiveThread, briefInput, postInput, setBrief, startThread, startThreadInput } from "@/lib/threads";
+import {
+  addPost,
+  archiveInput,
+  archiveThread,
+  briefInput,
+  importXInput,
+  importXThread,
+  postInput,
+  setBrief,
+  startThread,
+  startThreadInput,
+} from "@/lib/threads";
 import { runSync } from "@/lib/sync";
 
 /**
@@ -127,6 +138,16 @@ export const TOOLS: Tool[] = [
     input: startThreadInput,
     write: true,
     handler: (args) => startThread(args),
+  }),
+  tool({
+    name: "import_x_thread",
+    title: "Import an X thread",
+    description:
+      "Make a public X thread the active /now thread from its URL: title, linked project, repo, cover, brief and every post are filled in. Re-importing refreshes it; it also refreshes itself every 30 minutes.",
+    input: importXInput,
+    write: true,
+    annotations: { idempotentHint: true, openWorldHint: true },
+    handler: (args) => importXThread(args),
   }),
   tool({
     name: "archive_thread",

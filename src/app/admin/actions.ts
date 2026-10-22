@@ -11,7 +11,7 @@ import { runSync } from "@/lib/sync";
 import { captureProjects, captureTargets } from "@/lib/capture";
 import { profileSchema, saveDefaultView, saveProfile } from "@/lib/settings";
 import { isView } from "@/lib/views";
-import { addPost, archiveThread, setBrief, startThread } from "@/lib/threads";
+import { addPost, archiveThread, importXThread, setBrief, startThread } from "@/lib/threads";
 
 export type ActionState = { ok?: boolean; error?: string; message?: string };
 
@@ -174,6 +174,18 @@ export async function startThreadAction(_: ActionState, form: FormData): Promise
       }),
     "Nouveau thread lancé — l'ancien est archivé en story.",
   );
+}
+
+export async function importXThreadAction(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireSession();
+  try {
+    const t = await importXThread({ url: String(form.get("url") ?? "").trim() });
+    revalidatePath("/", "layout");
+    const { posts, added } = t.imported;
+    return { ok: true, message: `« ${t.title} » est le thread actif : ${posts} posts lus sur X, ${added} nouveaux.` };
+  } catch (err) {
+    return { error: errorMessage(err) };
+  }
 }
 
 export async function updateThreadAction(_: ActionState, form: FormData): Promise<ActionState> {

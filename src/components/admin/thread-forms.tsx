@@ -7,6 +7,7 @@ import {
   archiveThreadAction,
   deletePost,
   deleteThread,
+  importXThreadAction,
   reactivateThread,
   startThreadAction,
   updateThreadAction,
@@ -117,6 +118,24 @@ export function ArchiveForm({ thread }: { thread: string }) {
       <textarea name="summary" rows={2} placeholder="Résumé de la story (optionnel)" className={inputCls} />
       <div className="flex items-center gap-3">
         <Submit variant="danger">Archiver en story</Submit>
+        <Feedback state={state} />
+      </div>
+    </form>
+  );
+}
+
+/** Paste an X thread URL: everything else is read from the thread. With `url`, a one-click refresh. */
+export function ImportXForm({ url, hasActive }: { url?: string; hasActive?: boolean }) {
+  const [state, action] = useActionState(importXThreadAction, {});
+  return (
+    <form action={action} className="grid gap-3">
+      {url ? (
+        <input type="hidden" name="url" value={url} />
+      ) : (
+        <input name="url" type="url" required placeholder="https://x.com/toi/status/…" className={inputCls} />
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Submit>{url ? "Rafraîchir depuis X" : hasActive ? "Importer (archive l'actuel)" : "Importer"}</Submit>
         <Feedback state={state} />
       </div>
     </form>

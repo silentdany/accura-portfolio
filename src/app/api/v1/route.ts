@@ -24,6 +24,7 @@ export function GET() {
         "GET /stories/:slug": `${base}/stories/{slug}`,
         "POST /now/brief {text}": `${base}/now/brief`,
         "POST /now/posts {body, title?, url?, images?, date?, milestone?}": `${base}/now/posts`,
+        "POST /now/import {url}": `${base}/now/import`,
         "POST /threads {title, repos?, threadUrl?, project?}": `${base}/threads`,
         "POST /threads/:slug/archive {summary?}": `${base}/threads/{slug}/archive`,
         "POST /sync": `${base}/sync`,

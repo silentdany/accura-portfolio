@@ -27,15 +27,11 @@ Réponds en JSON strict {"tagline": string, "description": string}, en français
 - description: 2 à 3 phrases (max 320 caractères) : le problème, ce que le produit fait, pour qui. Ton sobre, précis, zéro jargon marketing.
 N'invente aucune fonctionnalité absente des données.`;
 
-export async function enrichProject(input: EnrichInput): Promise<Enriched | null> {
+/** One JSON completion; null when the gateway is off or the answer is not a JSON object. */
+export async function aiJson(system: string, user: string, maxTokens = 400): Promise<Record<string, unknown> | null> {
   const base = env.aiBaseUrl();
   const key = env.aiKey();
   if (!base || !key) return null;
-  const user = JSON.stringify({
-    ...input,
-    readme: input.readme?.slice(0, 4000) ?? null,
-    homepageText: input.homepageText?.slice(0, 1500) ?? null,
-  });
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -44,10 +40,10 @@ export async function enrichProject(input: EnrichInput): Promise<Enriched | null
     body: JSON.stringify({
       model: env.aiModel(),
       temperature: 0.3,
-      max_tokens: 400,
+      max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: system },
         { role: "user", content: user },
       ],
     }),
@@ -55,12 +51,21 @@ export async function enrichProject(input: EnrichInput): Promise<Enriched | null
   if (!res.ok) throw new Error(`AI gateway ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const content = data.choices?.[0]?.message?.content ?? "";
-  const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
   try {
-    const parsed = JSON.parse(json) as Partial<Enriched>;
-    if (typeof parsed.tagline !== "string" || typeof parsed.description !== "string") return null;
-    return { tagline: parsed.tagline.trim().replace(/\.$/, ""), description: parsed.description.trim() };
+    const parsed: unknown = JSON.parse(content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1));
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
   } catch {
     return null;
   }
+}
+
+export async function enrichProject(input: EnrichInput): Promise<Enriched | null> {
+  const user = JSON.stringify({
+    ...input,
+    readme: input.readme?.slice(0, 4000) ?? null,
+    homepageText: input.homepageText?.slice(0, 1500) ?? null,
+  });
+  const parsed = await aiJson(SYSTEM, user);
+  if (typeof parsed?.tagline !== "string" || typeof parsed.description !== "string") return null;
+  return { tagline: parsed.tagline.trim().replace(/\.$/, ""), description: parsed.description.trim() };
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PageShell, PDF_ALL } from "@/components/page-shell";
@@ -8,6 +9,7 @@ import { CommitGroups } from "@/components/commit-groups";
 import { Backdrop } from "@/components/backdrop";
 import { SectionHeading } from "@/components/section-heading";
 import { getActiveThread } from "@/lib/portfolio";
+import { refreshActiveXThread } from "@/lib/threads";
 import { recentCommits } from "@/lib/now";
 import { resolveView } from "@/lib/view-server";
 import { formatDate, relativeTime } from "@/lib/format";
@@ -23,6 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function NowPage({ searchParams }: PageProps<"/now">) {
   const sp = await searchParams;
+  // The active X thread pulls its new posts, at most every 30 minutes, after the response.
+  after(refreshActiveXThread);
   const [view, thread] = await Promise.all([resolveView(sp.view), getActiveThread()]);
   const commits = await recentCommits(thread?.repos ?? []);
   const total = commits.reduce((a, g) => a + g.commits.length, 0);

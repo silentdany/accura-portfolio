@@ -17,7 +17,7 @@ Portfolio automatisé de [Accura](https://accura.dev), déployé sur `portfolio.
 | **NDA** | Titre et phrase de contexte publics ; le reste (captures, stack, liens, chiffres) est derrière un mot de passe. Le cookie de déverrouillage est signé, valable 30 jours, et révoqué si le mot de passe change. L'API et le MCP ne renvoient que la version verrouillée. |
 | **Affichages** | `accura` (le design system d'accura.dev : encre sur blanc, accent rouge, ton « night » en sombre, Geist) et `raw` (HTML pur façon bellard.org). Choix avec `?view=raw`, jamais mémorisé : une URL sans paramètre affiche toujours l'affichage par défaut (`accura`, réglable dans l'admin). Pour en ajouter un : `src/lib/views.ts`. |
 | **Analytics** | Aucun tracker maison : un appel `get_overview` à Watch (`POST /api/v1/tools/get_overview`, mis en cache 15 min) alimente toutes les cartes (visiteurs, clics Search Console, erreurs Sentry, uptime). Correspondance par slug Watch (admin) ou, à défaut, par domaine. |
-| **Now** (`/now`) | Un seul thread actif : le brief du jour (envoyé par les bots Grok), le fil de posts, et les commits GitHub des 7 derniers jours groupés par repo. Démarrer un nouveau thread archive l'actuel, qui devient `/stories/[slug]` avec sa timeline complète. |
+| **Now** (`/now`) | Un seul thread actif : le brief du jour (envoyé par les bots Grok), le fil de posts, et les commits GitHub des 7 derniers jours groupés par repo. Le plus simple : coller l'URL d'un thread X public dans l'admin (Now). Titre, projet lié, repo, couverture, brief, résumé et tous les posts sont remplis depuis le thread (lu via l'API publique FxTwitter, sans clé X), avec la vraie date et les images du post cité quand un post récap cite le post d'origine. Le thread se resynchronise tout seul au plus toutes les 30 minutes quand le site est visité ; les champs édités à la main et les posts ajoutés à la main sont conservés. Démarrer un nouveau thread archive l'actuel, qui devient `/stories/[slug]` avec sa timeline complète. |
 | **PDF** | Bouton PDF dans l'en-tête : tout le portfolio, une catégorie ou un projet. Chromium headless (`@sparticuz/chromium` sur Vercel) rend `/print`. |
 | **SEO** | Metadata complètes, images OG dynamiques par projet et par story, `sitemap.xml`, `robots.txt`, JSON-LD, `llms.txt`. |
 
@@ -27,8 +27,8 @@ Le même schéma derrière les deux : chaque endpoint REST est une enveloppe fin
 
 - **MCP** (Streamable HTTP, JSON-RPC, sans état) : `POST /api/mcp`
   - Lecture : `get_profile`, `list_projects`, `get_project`, `list_categories`, `get_now`, `list_stories`, `get_story`
-  - Écriture : `set_now_brief`, `add_thread_post`, `start_thread`, `archive_thread`, `sync_projects`
-- **REST** : index sur `GET /api/v1`, miroir de tous les outils sur `POST /api/v1/tools/<name>`, plus `GET /projects`, `/projects/:slug`, `/categories`, `/now`, `/stories`, `/stories/:slug`, `/profile`, et `POST /now/brief`, `/now/posts`, `/threads`, `/threads/:slug/archive`, `/sync`.
+  - Écriture : `set_now_brief`, `add_thread_post`, `import_x_thread`, `start_thread`, `archive_thread`, `sync_projects`
+- **REST** : index sur `GET /api/v1`, miroir de tous les outils sur `POST /api/v1/tools/<name>`, plus `GET /projects`, `/projects/:slug`, `/categories`, `/now`, `/stories`, `/stories/:slug`, `/profile`, et `POST /now/brief`, `/now/posts`, `/now/import`, `/threads`, `/threads/:slug/archive`, `/sync`.
 
 Brief quotidien d'un bot :
 

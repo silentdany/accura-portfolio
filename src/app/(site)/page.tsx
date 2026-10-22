@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { headlineText } from "@/lib/profile-text";
 import { PageShell, PDF_ALL } from "@/components/page-shell";
 import { HomeHero } from "@/components/bento/home-hero";
@@ -7,6 +8,7 @@ import { SectionHeading } from "@/components/section-heading";
 import { RawHome } from "@/components/raw/raw-pages";
 import { JsonLd } from "@/components/json-ld";
 import { getActiveThread, listCategories, listProjects } from "@/lib/portfolio";
+import { refreshActiveXThread } from "@/lib/threads";
 import { getProfile } from "@/lib/settings";
 import { getWatchIndex } from "@/lib/watch";
 import { recentCommits } from "@/lib/now";
@@ -15,6 +17,8 @@ import { siteUrl } from "@/lib/env";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
+  // The active X thread pulls its new posts, at most every 30 minutes, after the response.
+  after(refreshActiveXThread);
   const [view, profile, watch, thread, categories] = await Promise.all([
     resolveView(sp.view),
     getProfile(),
