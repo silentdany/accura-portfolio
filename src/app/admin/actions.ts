@@ -8,6 +8,7 @@ import { hashPassword } from "@/lib/crypto";
 import { slugify } from "@/lib/slug";
 import { errorMessage } from "@/lib/http";
 import { runSync } from "@/lib/sync";
+import { enrichNextQueued, queueForceEnrich, type EnrichStep } from "@/lib/enrich-queue";
 import { captureProjects, captureTargets } from "@/lib/capture";
 import { profileSchema, saveDefaultView, saveProfile } from "@/lib/settings";
 import { isView } from "@/lib/views";
@@ -27,8 +28,6 @@ async function guard<T>(fn: () => Promise<T>, message?: string): Promise<ActionS
 }
 
 const empty = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-
-// ─── Projects ──────────────────────────────────────────────────────────────
 
 export async function reorderProjects(ids: string[]): Promise<ActionState> {
   return guard(() => prisma.$transaction(ids.map((id, position) => prisma.project.update({ where: { id }, data: { position } }))));
@@ -112,19 +111,28 @@ export async function syncNow(): Promise<ActionState> {
   }
 }
 
-/** Force AI re-enrichment even when source data hash is unchanged. */
-export async function reenrichNow(): Promise<ActionState> {
+export type EnrichStepState = EnrichStep & { ok?: boolean; error?: string };
+
+/** Put every synced project back in the AI queue. Fast, no model call. */
+export async function reenrichStart(): Promise<ActionState & { queued?: number }> {
   await requireSession();
   try {
-    const s = await runSync("admin", { capturesInBackground: true, forceEnrich: true });
-    revalidatePath("/", "layout");
-    return {
-      ok: true,
-      message: `Ré-enrichissement : ${s.enriched} descriptions régénérées${s.errors.length ? ` · ${s.errors.length} erreurs` : ""}${s.capturing ? " · captures en cours" : ""}`,
-      errors: s.errors,
-    };
+    const queued = await queueForceEnrich();
+    return { ok: true, queued, message: queued ? `${queued} projets en file` : "Aucun projet à enrichir." };
   } catch (err) {
     return { error: errorMessage(err) };
+  }
+}
+
+/** Regenerate one queued description (readme + homepage). The board calls this in a loop. */
+export async function reenrichStep(): Promise<EnrichStepState> {
+  await requireSession();
+  try {
+    const step = await enrichNextQueued();
+    if (step.enriched) revalidatePath("/", "layout");
+    return { ok: true, ...step };
+  } catch (err) {
+    return { ok: false, project: null, enriched: false, remaining: 0, error: errorMessage(err) };
   }
 }
 
@@ -139,8 +147,6 @@ export async function recapture(id: string): Promise<ActionState> {
     return { error: errorMessage(err) };
   }
 }
-
-// ─── Categories ─────────────────────────────────────────────────────────────
 
 export async function saveCategory(_: ActionState, form: FormData): Promise<ActionState> {
   return guard(async () => {
@@ -170,8 +176,6 @@ export async function moveCategory(id: string, dir: -1 | 1): Promise<ActionState
 export async function deleteCategory(id: string): Promise<ActionState> {
   return guard(() => prisma.category.delete({ where: { id } }));
 }
-
-// ─── Now / Stories ────────────────────────────────────────────────────────────
 
 const repoList = (v: FormDataEntryValue | null) =>
   String(v ?? "")
@@ -273,8 +277,6 @@ export async function reactivateThread(id: string): Promise<ActionState> {
 export async function deleteThread(id: string): Promise<ActionState> {
   return guard(() => prisma.thread.delete({ where: { id } }));
 }
-
-// ─── Settings ──────────────────────────────────────────────────────────────
 
 export async function saveSettings(_: ActionState, form: FormData): Promise<ActionState> {
   return guard(async () => {
