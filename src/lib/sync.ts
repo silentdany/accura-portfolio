@@ -211,12 +211,12 @@ export class SyncBusy extends Error {}
  * One sync at a time. With `capturesInBackground`, it returns once the projects are synced (~15 s)
  * and the screenshots carry on after the response (`after()`), within the same deadline.
  * `forceEnrich` re-runs the AI description even when the source hash is unchanged.
- * The sequential AI pass for forceEnrich runs in the background via after() to avoid request timeouts.
+ * The AI force pass runs in background via after() to avoid blocking the response.
  */
 export async function runSync(
   trigger: "cron" | "admin" | "api",
   opts: { capturesInBackground?: boolean; forceEnrich?: boolean } = {},
-): Promise<SyncStats & { id: string; capturing: boolean; enriching?: boolean }> {
+): Promise<SyncStats & { id: string; capturing: boolean }> {
   await prisma.syncRun.updateMany({
     where: { finishedAt: null, startedAt: { lt: new Date(Date.now() - STALE_MS) } },
     data: { finishedAt: new Date(), ok: false, error: "Interrompue : la fonction a dépassé son délai." },
@@ -259,46 +259,45 @@ export async function runSync(
     }
   };
 
-  const force = Boolean(opts.forceEnrich);
-  const enrichInBackground = async () => {
-    if (!force || !aiEnabled()) return;
-    try {
-      const projects = await prisma.project.findMany({
-        where: { manual: false },
-        orderBy: { position: "asc" },
-        select: { id: true, name: true, description: true, topics: true, languages: true, url: true },
-      });
-      for (const p of projects) {
-        try {
-          const res = await enrichProject({
-            name: p.name,
-            url: p.url,
-            description: p.description,
-            topics: p.topics,
-            languages: p.languages,
-            readme: null,
-            homepageText: null,
+  const forceAi = async () => {
+    if (!opts.forceEnrich || !aiEnabled()) return;
+    const projects = await prisma.project.findMany({
+      where: { manual: false },
+      orderBy: { position: "asc" },
+      select: { id: true, name: true, description: true, topics: true, languages: true, url: true },
+    });
+    for (const p of projects) {
+      try {
+        const res = await enrichProject({
+          name: p.name,
+          url: p.url,
+          description: p.description,
+          topics: p.topics,
+          languages: p.languages,
+          readme: null,
+          homepageText: null,
+        });
+        if (res) {
+          await prisma.project.update({
+            where: { id: p.id },
+            data: {
+              aiTagline: res.tagline,
+              aiDescription: res.description,
+              aiInputHash: shortHash(JSON.stringify([p.name, p.description, p.topics, p.languages])),
+            },
           });
-          if (res) {
-            await prisma.project.update({
-              where: { id: p.id },
-              data: {
-                aiTagline: res.tagline,
-                aiDescription: res.description,
-                aiInputHash: shortHash(JSON.stringify([p.name, p.description, p.topics, p.languages])),
-              },
-            });
-            stats.enriched++;
-          }
-        } catch (err) {
-          stats.errors.push({ project: p.name, error: `AI force: ${errorMessage(err)}` });
+          stats.enriched++;
         }
-        await sleep(12_000);
+      } catch (err) {
+        stats.errors.push({ project: p.name, error: `AI force: ${errorMessage(err)}` });
       }
-      await finish();
-    } catch (err) {
-      await finish(errorMessage(err));
+      await sleep(12_000);
     }
+    // Update the run stats at the end
+    await prisma.syncRun.update({
+      where: { id: run.id },
+      data: { stats: stats as unknown as Prisma.InputJsonValue },
+    });
   };
 
   try {
@@ -306,6 +305,7 @@ export async function runSync(
     stats.detected = candidates.length;
     const max = await prisma.project.aggregate({ _max: { position: true } });
     let position = (max._max.position ?? 0) + 1;
+    const force = Boolean(opts.forceEnrich);
     await pool(candidates, 4, async (c) => {
       try {
         await syncOne(c, stats, () => position++, force);
@@ -313,18 +313,19 @@ export async function runSync(
         stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
       }
     });
+
+    // Launch force AI in background if requested
+    if (force && aiEnabled()) {
+      after(forceAi);
+    }
   } catch (err) {
     await finish(errorMessage(err));
     throw err;
   }
 
   const capturing = capturesEnabled() && Boolean(opts.capturesInBackground);
-  const enriching = force && aiEnabled();
-
-  if (enriching) after(enrichInBackground);
-  if (!capturesEnabled() && !enriching) await finish();
+  if (!capturesEnabled()) await finish();
   else if (capturing) after(captures);
-  else if (!enriching) await captures();
-
-  return { ...stats, id: run.id, capturing, enriching };
+  else await captures();
+  return { ...stats, id: run.id, capturing };
 }
