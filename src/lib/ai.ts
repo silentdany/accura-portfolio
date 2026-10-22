@@ -71,7 +71,7 @@ export async function aiJson(system: string, user: string, maxTokens = 1400): Pr
     const body = (await res.text()).slice(0, 240);
     const hint =
       res.status === 403 || res.status === 402
-        ? " Modèle hors free tier : retire AI_MODEL ou mets AI_MODEL=google/gemini-2.5-flash."
+        ? " Modèle refusé. Retire AI_MODEL pour revenir à minimax/minimax-m3.1-flash, ou mets un modèle du free tier."
         : "";
     throw new Error(`AI ${model} ${res.status}: ${body}${hint}`);
   }
