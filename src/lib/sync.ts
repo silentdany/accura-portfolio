@@ -211,11 +211,12 @@ export class SyncBusy extends Error {}
  * One sync at a time. With `capturesInBackground`, it returns once the projects are synced (~15 s)
  * and the screenshots carry on after the response (`after()`), within the same deadline.
  * `forceEnrich` re-runs the AI description even when the source hash is unchanged.
+ * The sequential AI pass for forceEnrich runs in the background via after() to avoid request timeouts.
  */
 export async function runSync(
   trigger: "cron" | "admin" | "api",
   opts: { capturesInBackground?: boolean; forceEnrich?: boolean } = {},
-): Promise<SyncStats & { id: string; capturing: boolean }> {
+): Promise<SyncStats & { id: string; capturing: boolean; enriching?: boolean }> {
   await prisma.syncRun.updateMany({
     where: { finishedAt: null, startedAt: { lt: new Date(Date.now() - STALE_MS) } },
     data: { finishedAt: new Date(), ok: false, error: "Interrompue : la fonction a dépassé son délai." },
@@ -258,22 +259,10 @@ export async function runSync(
     }
   };
 
-  try {
-    const candidates = await collectCandidates(stats);
-    stats.detected = candidates.length;
-    const max = await prisma.project.aggregate({ _max: { position: true } });
-    let position = (max._max.position ?? 0) + 1;
-    const force = Boolean(opts.forceEnrich);
-    await pool(candidates, 4, async (c) => {
-      try {
-        await syncOne(c, stats, () => position++, force);
-      } catch (err) {
-        stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
-      }
-    });
-
-    // Solid sequential AI enrichment for forceEnrich (strict 5/min via 12s delay, no shared state)
-    if (force && aiEnabled()) {
+  const force = Boolean(opts.forceEnrich);
+  const enrichInBackground = async () => {
+    if (!force || !aiEnabled()) return;
+    try {
       const projects = await prisma.project.findMany({
         where: { manual: false },
         orderBy: { position: "asc" },
@@ -306,15 +295,36 @@ export async function runSync(
         }
         await sleep(12_000);
       }
+      await finish();
+    } catch (err) {
+      await finish(errorMessage(err));
     }
+  };
+
+  try {
+    const candidates = await collectCandidates(stats);
+    stats.detected = candidates.length;
+    const max = await prisma.project.aggregate({ _max: { position: true } });
+    let position = (max._max.position ?? 0) + 1;
+    await pool(candidates, 4, async (c) => {
+      try {
+        await syncOne(c, stats, () => position++, force);
+      } catch (err) {
+        stats.errors.push({ project: c.deployed?.name ?? c.repo?.full_name ?? "?", error: errorMessage(err) });
+      }
+    });
   } catch (err) {
     await finish(errorMessage(err));
     throw err;
   }
 
   const capturing = capturesEnabled() && Boolean(opts.capturesInBackground);
-  if (!capturesEnabled()) await finish();
+  const enriching = force && aiEnabled();
+
+  if (enriching) after(enrichInBackground);
+  if (!capturesEnabled() && !enriching) await finish();
   else if (capturing) after(captures);
-  else await captures();
-  return { ...stats, id: run.id, capturing };
+  else if (!enriching) await captures();
+
+  return { ...stats, id: run.id, capturing, enriching };
 }
