@@ -2,7 +2,7 @@ import { callTool, TOOLS, toolJsonSchema } from "./tools";
 import { errorMessage } from "@/lib/http";
 
 /**
- * Minimal MCP server (Streamable HTTP, stateless, JSON responses) — same design as Accura Watch.
+ * Minimal MCP server (Streamable HTTP, stateless, JSON responses), same design as Accura Watch.
  * Implements initialize, ping, tools/*, prompts/*, resources/* (empty).
  */
 

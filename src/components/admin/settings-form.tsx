@@ -20,11 +20,11 @@ export function SettingsForm({ profile, defaultView }: { profile: Profile; defau
           <input name="email" defaultValue={profile.email} className={inputCls} />
         </Field>
       </div>
-      <Field label="Titre — ligne 1">
+      <Field label="Titre, ligne 1">
         <input name="headline" defaultValue={profile.headline} maxLength={140} className={inputCls} />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Titre — ligne 2 (grisée)">
+        <Field label="Titre, ligne 2 (grisée)">
           <input name="headlineTail" defaultValue={profile.headlineTail} maxLength={80} className={inputCls} />
         </Field>
         <Field label="Mot d'accent (rouge, italique)">
@@ -69,7 +69,7 @@ export function SettingsForm({ profile, defaultView }: { profile: Profile; defau
         <select name="defaultView" defaultValue={defaultView} className={inputCls}>
           {VIEWS.map((v) => (
             <option key={v.id} value={v.id}>
-              {v.label} — {v.description}
+              {v.label} : {v.description}
             </option>
           ))}
         </select>

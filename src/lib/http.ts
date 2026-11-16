@@ -9,7 +9,7 @@ export async function fetchJson<T>(url: string, init: RequestInit & { timeoutMs?
   const res = await fetch(url, { ...rest, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText} — ${url}${body ? `: ${body.slice(0, 200)}` : ""}`);
+    throw new Error(`${res.status} ${res.statusText}: ${url}${body ? `: ${body.slice(0, 200)}` : ""}`);
   }
   return (await res.json()) as T;
 }

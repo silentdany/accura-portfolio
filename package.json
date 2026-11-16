@@ -15,7 +15,7 @@
     "db:studio": "prisma studio",
     "sync": "tsx --env-file=.env scripts/sync.ts",
     "db:reset-admin": "tsx scripts/reset-admin.ts",
-    "test": "tsx --test scripts/reset-admin.test.ts"
+    "test": "tsx --test scripts/reset-admin.test.ts src/lib/env.test.ts src/lib/emdash.test.ts src/lib/sitemap.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

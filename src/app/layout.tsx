@@ -17,7 +17,7 @@ export const preferredRegion = "cdg1";
 
 export async function generateMetadata(): Promise<Metadata> {
   const profile = await getProfile();
-  const title = `${profile.name} — Portfolio`;
+  const title = `${profile.name} · Portfolio`;
   return {
     metadataBase: new URL(siteUrl()),
     title: { default: title, template: `%s · ${profile.name}` },

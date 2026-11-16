@@ -29,7 +29,7 @@ export function ThreadEditor({ thread, id, projects }: { thread: PublicThread; i
         </Field>
         <Field label="Projet lié">
           <select name="project" defaultValue={thread.project?.slug ?? ""} className={inputCls}>
-            <option value="">—</option>
+            <option value="">Aucun</option>
             {projects.map((p) => (
               <option key={p.slug} value={p.slug}>
                 {p.name}

@@ -10,7 +10,7 @@ import { BrowserShot, PhoneShot } from "@/components/shots";
 
 export const metadata: Metadata = { title: "Export PDF", robots: { index: false } };
 
-/** Print layout rendered by /api/pdf (headless Chromium) — also printable straight from the browser. */
+/** Print layout rendered by /api/pdf (headless Chromium), also printable straight from the browser. */
 export default async function PrintPage({ searchParams }: PageProps<"/print">) {
   const sp = await searchParams;
   const scope = typeof sp.scope === "string" ? sp.scope : "all";
@@ -84,7 +84,7 @@ export default async function PrintPage({ searchParams }: PageProps<"/print">) {
                   <p className="mt-1 text-[12px] leading-snug text-ink-2">{p.locked ? p.ndaContext : p.tagline}</p>
                   {!p.locked && (
                     <p className="mt-2 font-mono text-[10px] text-subtle">
-                      {[p.languages.slice(0, 3).join(" · "), p.stats?.visitors ? `${formatNumber(p.stats.visitors)} visiteurs/28 j` : null].filter(Boolean).join("  —  ")}
+                      {[p.languages.slice(0, 3).join(" · "), p.stats?.visitors ? `${formatNumber(p.stats.visitors)} visiteurs/28 j` : null].filter(Boolean).join("  ·  ")}
                     </p>
                   )}
                 </div>
@@ -108,7 +108,7 @@ function SingleProject({ p }: { p: PublicProject }) {
       <h2 className="text-6xl leading-none font-semibold tracking-[-0.045em]">{p.name}</h2>
       <p className="mt-3 text-lg text-ink-2">{p.locked ? p.ndaContext : p.tagline}</p>
       {p.locked ? (
-        <p className="mt-6 text-sm text-muted">Projet sous NDA — détails disponibles sur demande.</p>
+        <p className="mt-6 text-sm text-muted">Projet sous NDA : détails disponibles sur demande.</p>
       ) : (
         <>
           {p.image && (

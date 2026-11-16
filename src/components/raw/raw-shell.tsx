@@ -3,7 +3,7 @@ import type { PdfOption } from "@/components/site-header";
 
 /**
  * "Raw" display mode: plain HTML with browser-default styling, in the spirit of bellard.org.
- * No grid, no images, no JS — just text and links.
+ * No grid, no images, no JS: just text and links.
  */
 export function RawShell({ pdf, children }: { pdf: PdfOption[]; children: React.ReactNode }) {
   return (

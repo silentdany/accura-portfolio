@@ -71,7 +71,7 @@ export default async function NowPage({ searchParams }: PageProps<"/now">) {
               {thread?.brief ?? "Pas encore de brief aujourd'hui."}
             </blockquote>
             <p className="relative mt-6 font-mono text-[11px] text-subtle">
-              {thread?.briefAt ? `${formatDate(thread.briefAt)} · ${relativeTime(thread.briefAt)}` : "—"}
+              {thread?.briefAt ? `${formatDate(thread.briefAt)} · ${relativeTime(thread.briefAt)}` : "Pas encore"}
               {thread?.threadUrl && (
                 <>
                   {" · "}

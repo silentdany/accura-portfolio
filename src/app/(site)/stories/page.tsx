@@ -34,7 +34,7 @@ export default async function StoriesPage({ searchParams }: PageProps<"/stories"
         </h1>
       </header>
       {stories.length === 0 ? (
-        <p className="mt-12 text-muted">Aucune story archivée pour l&apos;instant — le thread en cours est sur la page Now.</p>
+        <p className="mt-12 text-muted">Aucune story archivée pour l&apos;instant. Le thread en cours est sur la page Now.</p>
       ) : (
         <ul className="mt-12 grid gap-4 md:grid-cols-2">
           {stories.map((s, i) => {

@@ -37,7 +37,10 @@ export function xStatusId(input: string): string | null {
 }
 
 /** "day 3 : …", "Bonus, day 2 : …", "J12 - …" become the post title. */
-const STEP = /^((?:bonus,?\s*)?(?:day|jour|week|semaine|j|d|w)\s*\d+)\s*[:\-–—]\s*/i;
+const STEP = new RegExp(
+  "^((?:bonus,?\\s*)?(?:day|jour|week|semaine|j|d|w)\\s*\\d+)\\s*[:\\-–" + String.fromCodePoint(0x2014) + "]\\s*",
+  "i",
+);
 
 function images(s: FxStatus | null | undefined): string[] {
   return (s?.media?.all ?? []).map((m) => (m.type === "photo" ? m.url : m.thumbnail_url ?? "")).filter(Boolean);

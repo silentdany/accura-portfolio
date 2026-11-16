@@ -117,7 +117,7 @@ export const TOOLS: Tool[] = [
   tool({
     name: "set_now_brief",
     title: "Set the daily brief",
-    description: "Replace the daily brief (≈2 lines) of the active thread — what the Grok bots post every day.",
+    description: "Replace the daily brief (≈2 lines) of the active thread: what the Grok bots post every day.",
     input: briefInput,
     write: true,
     annotations: { idempotentHint: true },

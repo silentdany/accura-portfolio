@@ -115,7 +115,7 @@ export function ProjectEditor({
               <option value="">Auto (domaine)</option>
               {watchSites.map((s) => (
                 <option key={s.slug} value={s.slug}>
-                  {s.slug} — {s.domain}
+                  {s.slug} ({s.domain})
                 </option>
               ))}
             </select>
@@ -171,7 +171,7 @@ export function ProjectEditor({
           type="button"
           disabled={deleting}
           onClick={() => {
-            if (!confirm(`Supprimer ${p.name} ? (la sync le recréera s'il est toujours déployé — préfère « Masqué »)`)) return;
+            if (!confirm(`Supprimer ${p.name} ? (la sync le recréera s'il est toujours déployé ; préfère « Masqué »)`)) return;
             startDelete(async () => {
               await deleteProject(p.id);
               onDone();

@@ -43,7 +43,7 @@ function prettify(name: string): string {
 }
 
 function displayName(raw: string, title: string | null): string {
-  const head = title?.split(/\s[—–|·:-]\s/)[0]?.trim();
+  const head = title?.split(new RegExp("\\s[" + String.fromCodePoint(0x2014) + "–|·:-]\\s"))[0]?.trim();
   if (head && head.length >= 2 && head.length <= 28 && !/^(home|accueil|index)$/i.test(head)) return head;
   return prettify(raw);
 }
