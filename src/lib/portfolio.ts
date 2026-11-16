@@ -77,7 +77,7 @@ export function presentProject(p: ProjectRow, opts: { unlocked?: boolean; watch?
   const description = p.descriptionOverride || p.aiDescription || p.description || null;
   const tagline = p.taglineOverride || p.aiTagline || firstSentence(p.description);
   const capture = { desktop: captureUrl(p, "desktop", origin), mobile: captureUrl(p, "mobile", origin) };
-  const shots = [...p.screenshots, p.ogImage].filter((x): x is string => Boolean(x) && isShot(x));
+  const shots = [...p.screenshots, p.ogImage].filter((x): x is string => typeof x === "string" && x.length > 0 && isShot(x));
   const screenshots = [...new Set([...(p.imageOverride ? [p.imageOverride] : []), ...shots])];
   const image = p.imageOverride || capture.desktop || shots[0] || null;
   const base = {
