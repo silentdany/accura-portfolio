@@ -273,7 +273,7 @@ function WatchCard({ s }: { s: WatchStats }) {
         <span className="eyebrow">Audience · {s.range} j</span>
         <span className="flex items-center gap-1.5 text-xs text-ink-2">
           <StatusDot status={s.status} />
-          {s.status === "up" ? "En ligne" : s.status === "down" ? "Hors ligne" : "—"}
+          {s.status === "up" ? "En ligne" : s.status === "down" ? "Hors ligne" : "Inconnu"}
         </span>
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">

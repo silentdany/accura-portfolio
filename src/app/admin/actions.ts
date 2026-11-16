@@ -193,7 +193,7 @@ export async function startThreadAction(_: ActionState, form: FormData): Promise
         repos: repoList(form.get("repos")),
         project: empty(form.get("project")) ?? undefined,
       }),
-    "Nouveau thread lancé — l'ancien est archivé en story.",
+    "Nouveau thread lancé. L'ancien est archivé en story.",
   );
 }
 

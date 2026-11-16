@@ -9,6 +9,25 @@ export function siteUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
+/** Next.js sets this while compiling; the running server uses a different phase. */
+export const PRODUCTION_BUILD_PHASE = "phase-production-build";
+
+/**
+ * Auth cookie-signing secret. Required once the server starts.
+ * `next build` may import this module before secrets are available, so the
+ * production-build phase is allowed to proceed without one. That placeholder
+ * is never used to sign a real session.
+ */
+export function resolveAuthSecret(
+  value: string | undefined = process.env.BETTER_AUTH_SECRET,
+  phase: string | undefined = process.env.NEXT_PHASE,
+): string {
+  const secret = value?.trim();
+  if (secret) return secret;
+  if (phase === PRODUCTION_BUILD_PHASE) return "build-placeholder-not-used-at-runtime";
+  throw new Error("BETTER_AUTH_SECRET is required at runtime. Set it before starting the app.");
+}
+
 export const env = {
   githubOwner: () => process.env.GITHUB_OWNER?.trim() || "silentdany",
   githubToken: () => process.env.GITHUB_TOKEN?.trim() || null,
@@ -24,5 +43,5 @@ export const env = {
   aiModel: () => process.env.AI_MODEL?.trim() || "minimax/minimax-m3.1-flash",
   apiToken: () => process.env.PORTFOLIO_API_TOKEN?.trim() || null,
   cronSecret: () => process.env.CRON_SECRET?.trim() || null,
-  authSecret: () => process.env.BETTER_AUTH_SECRET ?? "dev-only-insecure-secret-change-me",
+  authSecret: () => resolveAuthSecret(),
 };

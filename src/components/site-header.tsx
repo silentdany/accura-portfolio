@@ -26,7 +26,7 @@ export async function SiteHeader({ view, pdf, active }: { view: ViewId; pdf: Pdf
     <header className="no-print sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur-xl">
       <div className="px-5 sm:px-8">
         <div className="shell flex h-16 items-center gap-4">
-          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70" aria-label="Portfolio — accueil">
+          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-70" aria-label="Accueil du portfolio">
             <Logo size={24} />
             <span className="text-[15px] font-semibold tracking-tight">
               Accura<span className="text-muted">.dev</span>

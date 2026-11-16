@@ -1,27 +1,24 @@
 import type { MetadataRoute } from "next";
+import { listProjectRows } from "@/lib/portfolio";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/env";
+import { buildSitemap, type SitemapCategory, type SitemapProject, type SitemapStory } from "@/lib/sitemap";
 
-export const revalidate = 3600;
+/** Always reflect the live public catalogue so hidden or removed projects cannot linger as 404s. */
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const [projects, stories, categories] = await Promise.all([
-    prisma.project.findMany({ where: { hidden: false }, select: { slug: true, updatedAt: true, lastUpdatedAt: true, pinned: true } }),
-    prisma.thread.findMany({ where: { status: "archived" }, select: { slug: true, updatedAt: true } }),
-    prisma.category.findMany({ select: { slug: true } }),
-  ]).catch(() => [[], [], []] as const);
-  return [
-    { url: base, changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/now`, changeFrequency: "daily", priority: 0.8 },
-    { url: `${base}/stories`, changeFrequency: "weekly", priority: 0.6 },
-    ...categories.map((c) => ({ url: `${base}/?c=${c.slug}`, changeFrequency: "weekly" as const, priority: 0.5 })),
-    ...projects.map((p) => ({
-      url: `${base}/projects/${p.slug}`,
-      lastModified: p.lastUpdatedAt ?? p.updatedAt,
-      changeFrequency: "weekly" as const,
-      priority: p.pinned ? 0.9 : 0.7,
-    })),
-    ...stories.map((s) => ({ url: `${base}/stories/${s.slug}`, lastModified: s.updatedAt, changeFrequency: "monthly" as const, priority: 0.6 })),
-  ];
+    listProjectRows()
+      .then((rows) =>
+        rows.map((p) => ({ slug: p.slug, updatedAt: p.updatedAt, lastUpdatedAt: p.lastUpdatedAt, pinned: p.pinned })),
+      )
+      .catch(() => [] as SitemapProject[]),
+    prisma.thread
+      .findMany({ where: { status: "archived" }, select: { slug: true, updatedAt: true } })
+      .catch(() => [] as SitemapStory[]),
+    prisma.category.findMany({ select: { slug: true } }).catch(() => [] as SitemapCategory[]),
+  ]);
+  return buildSitemap(base, projects, stories, categories);
 }

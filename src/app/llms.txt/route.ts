@@ -11,7 +11,7 @@ export async function GET() {
   const base = siteUrl();
   const [profile, projects, thread] = await Promise.all([getProfile(), listProjects().catch(() => []), getActiveThread().catch(() => null)]);
   const lines = [
-    `# ${profile.name} — Portfolio`,
+    `# ${profile.name} · Portfolio`,
     "",
     `> ${headlineText(profile)}`,
     "",
@@ -23,7 +23,7 @@ export async function GET() {
     "",
     ...(thread ? ["## Now", `- [${thread.title}](${base}/now): ${thread.brief ?? ""}`, ""] : []),
     "## Projects",
-    ...projects.map((p) => `- [${p.name}](${p.link}): ${p.locked ? `${p.ndaContext} (NDA)` : (p.tagline ?? "")}${p.url && !p.locked ? ` — ${p.url}` : ""}`),
+    ...projects.map((p) => `- [${p.name}](${p.link}): ${p.locked ? `${p.ndaContext} (NDA)` : (p.tagline ?? "")}${p.url && !p.locked ? ` (${p.url})` : ""}`),
     "",
     "## Links",
     ...profile.links.map((l) => `- [${l.label}](${l.url})`),

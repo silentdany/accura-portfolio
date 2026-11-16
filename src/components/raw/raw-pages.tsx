@@ -24,7 +24,7 @@ export function RawHome({ profile, projects, thread }: { profile: Profile; proje
       {thread && (
         <p>
           <b>En ce moment :</b> <a href="/now?view=raw">{thread.title}</a>
-          {thread.brief ? ` — ${thread.brief}` : ""}
+          {thread.brief ? `: ${thread.brief}` : ""}
         </p>
       )}
       {[...byCat.entries()].map(([cat, list]) => (
@@ -35,7 +35,7 @@ export function RawHome({ profile, projects, thread }: { profile: Profile; proje
               <li key={p.slug}>
                 {p.url ? <a href={p.url}>{p.name}</a> : <b>{p.name}</b>}: {p.locked ? p.ndaContext : p.tagline}
                 {p.locked ? " (sous NDA)" : ""} [<a href={`/projects/${p.slug}?view=raw`}>détails</a>]
-                {p.stats?.visitors ? <small> — {formatNumber(p.stats.visitors)} visiteurs/28 j</small> : null}
+                {p.stats?.visitors ? <small> ({formatNumber(p.stats.visitors)} visiteurs/28 j)</small> : null}
               </li>
             ))}
           </ul>
@@ -181,7 +181,7 @@ export function RawTimeline({ thread }: { thread: PublicThread }) {
     <ol>
       {thread.posts.map((p) => (
         <li key={p.id}>
-          <small>{formatDate(p.date)}</small> — {p.title ? <b>{p.title}. </b> : null}
+          <small>{formatDate(p.date)}</small>{" : "}{p.title ? <b>{p.title}. </b> : null}
           {p.body} {p.url && <a href={p.url}>[lien]</a>}{" "}
           {p.images.map((img, i) => (
             <a key={img} href={img}>
@@ -202,7 +202,7 @@ export function RawStories({ stories }: { stories: PublicThread[] }) {
       <ul>
         {stories.map((s) => (
           <li key={s.slug}>
-            <a href={`/stories/${s.slug}?view=raw`}>{s.title}</a> — {formatDate(s.startedAt)} → {formatDate(s.archivedAt)} ({s.posts.length} posts)
+            <a href={`/stories/${s.slug}?view=raw`}>{s.title}</a> ({formatDate(s.startedAt)} → {formatDate(s.archivedAt)}, {s.posts.length} posts)
           </li>
         ))}
       </ul>
